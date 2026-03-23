@@ -20,13 +20,22 @@ public sealed partial class ExtensionsPage : Page
 
     private readonly SettingsViewModel? viewModel;
 
+#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
     public ExtensionsPage()
+        : this(
+            App.Current.Services.GetService<TopLevelCommandManager>()!,
+            App.Current.Services.GetService<IThemeService>()!,
+            App.Current.Services.GetRequiredService<ISettingsService>())
+    {
+    }
+#pragma warning restore CS0618
+
+    public ExtensionsPage(
+        TopLevelCommandManager topLevelCommandManager,
+        IThemeService themeService,
+        ISettingsService settingsService)
     {
         this.InitializeComponent();
-
-        var topLevelCommandManager = App.Current.Services.GetService<TopLevelCommandManager>()!;
-        var themeService = App.Current.Services.GetService<IThemeService>()!;
-        var settingsService = App.Current.Services.GetRequiredService<ISettingsService>();
         viewModel = new SettingsViewModel(topLevelCommandManager, _mainTaskScheduler, themeService, settingsService);
     }
 

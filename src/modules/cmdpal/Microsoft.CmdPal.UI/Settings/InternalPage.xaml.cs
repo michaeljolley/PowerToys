@@ -21,11 +21,17 @@ public sealed partial class InternalPage : Page
 {
     private readonly IApplicationInfoService _appInfoService;
 
+#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
     public InternalPage()
+        : this(App.Current.Services.GetRequiredService<IApplicationInfoService>())
     {
-        InitializeComponent();
+    }
+#pragma warning restore CS0618
 
-        _appInfoService = App.Current.Services.GetRequiredService<IApplicationInfoService>();
+    public InternalPage(IApplicationInfoService appInfoService)
+    {
+        _appInfoService = appInfoService;
+        InitializeComponent();
     }
 
     private void ThrowPlainMainThreadException_Click(object sender, RoutedEventArgs e)

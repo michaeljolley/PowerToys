@@ -60,6 +60,11 @@ public partial class App : Application, IDisposable
     /// <summary>
     /// Gets the <see cref="IServiceProvider"/> instance to resolve application services.
     /// </summary>
+    /// <remarks>
+    /// Deprecated: Use constructor injection instead. This property exists only to support
+    /// parameterless XAML constructors during the DI migration. Do not add new usages.
+    /// </remarks>
+    [Obsolete("Use constructor injection. This property will be removed once all XAML constructors are migrated to DI.")]
     public IServiceProvider Services { get; }
 
     /// <summary>
@@ -75,9 +80,11 @@ public partial class App : Application, IDisposable
         _globalErrorHandler.Register(this, GlobalErrorHandler.Options.Default, appInfoService);
 #endif
 
+#pragma warning disable CS0618 // Obsolete — Services initialization
         Services = ConfigureServices(appInfoService);
 
         IconCacheProvider.Initialize(Services);
+#pragma warning restore CS0618
 
         this.InitializeComponent();
 

@@ -66,17 +66,29 @@ public sealed partial class DockWindow : WindowEx,
     private WNDPROC? _customWndProc;
 
     // internal Settings CurrentSettings => _settings;
+#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
     public DockWindow()
+        : this(
+            App.Current.Services.GetRequiredService<ISettingsService>(),
+            App.Current.Services.GetService<DockViewModel>()!,
+            App.Current.Services.GetRequiredService<IThemeService>())
     {
-        var serviceProvider = App.Current.Services;
-        var mainSettings = serviceProvider.GetRequiredService<ISettingsService>().Settings;
-        _settingsService = serviceProvider.GetRequiredService<ISettingsService>();
+    }
+#pragma warning restore CS0618
+
+    public DockWindow(
+        ISettingsService settingsService,
+        DockViewModel dockViewModel,
+        IThemeService themeService)
+    {
+        _settingsService = settingsService;
         _settingsService.SettingsChanged += SettingsChangedHandler;
+        var mainSettings = _settingsService.Settings;
         _settings = mainSettings.DockSettings;
         _lastSize = _settings.DockSize;
 
-        viewModel = serviceProvider.GetService<DockViewModel>()!;
-        _themeService = serviceProvider.GetRequiredService<IThemeService>();
+        viewModel = dockViewModel;
+        _themeService = themeService;
         _themeService.ThemeChanged += ThemeService_ThemeChanged;
         _windowViewModel = new DockWindowViewModel(_themeService);
         _dock = new DockControl(viewModel);

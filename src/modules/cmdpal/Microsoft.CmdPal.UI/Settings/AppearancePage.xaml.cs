@@ -27,13 +27,22 @@ public sealed partial class AppearancePage : Page
 
     internal SettingsViewModel ViewModel { get; }
 
+#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
     public AppearancePage()
+        : this(
+            App.Current.Services.GetRequiredService<IThemeService>(),
+            App.Current.Services.GetService<TopLevelCommandManager>()!,
+            App.Current.Services.GetRequiredService<ISettingsService>())
+    {
+    }
+#pragma warning restore CS0618
+
+    public AppearancePage(
+        IThemeService themeService,
+        TopLevelCommandManager topLevelCommandManager,
+        ISettingsService settingsService)
     {
         InitializeComponent();
-
-        var themeService = App.Current.Services.GetRequiredService<IThemeService>();
-        var topLevelCommandManager = App.Current.Services.GetService<TopLevelCommandManager>()!;
-        var settingsService = App.Current.Services.GetRequiredService<ISettingsService>();
         ViewModel = new SettingsViewModel(topLevelCommandManager, _mainTaskScheduler, themeService, settingsService);
     }
 

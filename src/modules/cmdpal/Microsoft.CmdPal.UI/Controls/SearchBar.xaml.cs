@@ -32,6 +32,7 @@ public sealed partial class SearchBar : UserControl,
     /// Gets the <see cref="DispatcherQueueTimer"/> that we create to track keyboard input and throttle/debounce before we make queries.
     /// </summary>
     private readonly DispatcherQueueTimer _debounceTimer = DispatcherQueue.GetForCurrentThread().CreateTimer();
+    private readonly ISettingsService _settingsService;
     private bool _isBackspaceHeld;
 
     // Inline text suggestions
@@ -50,7 +51,7 @@ public sealed partial class SearchBar : UserControl,
     // 0.6+ suggestions
     private string? _textToSuggest;
 
-    private SettingsModel Settings => App.Current.Services.GetRequiredService<ISettingsService>().Settings;
+    private SettingsModel Settings => _settingsService.Settings;
 
     public PageViewModel? CurrentPageViewModel
     {
@@ -85,8 +86,17 @@ public sealed partial class SearchBar : UserControl,
         }
     }
 
+    // XAML compatibility shim — will be removed when parents use DI constructor
+#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
     public SearchBar()
+        : this(App.Current.Services.GetRequiredService<ISettingsService>())
     {
+    }
+#pragma warning restore CS0618
+
+    public SearchBar(ISettingsService settingsService)
+    {
+        _settingsService = settingsService;
         this.InitializeComponent();
         WeakReferenceMessenger.Default.Register<GoHomeMessage>(this);
         WeakReferenceMessenger.Default.Register<FocusSearchBoxMessage>(this);

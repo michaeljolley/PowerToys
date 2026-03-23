@@ -19,14 +19,25 @@ public sealed partial class GeneralPage : Page
     private readonly SettingsViewModel? viewModel;
     private readonly IApplicationInfoService _appInfoService;
 
+#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
     public GeneralPage()
+        : this(
+            App.Current.Services.GetService<TopLevelCommandManager>()!,
+            App.Current.Services.GetService<IThemeService>()!,
+            App.Current.Services.GetRequiredService<ISettingsService>(),
+            App.Current.Services.GetRequiredService<IApplicationInfoService>())
     {
-        this.InitializeComponent();
+    }
+#pragma warning restore CS0618
 
-        var topLevelCommandManager = App.Current.Services.GetService<TopLevelCommandManager>()!;
-        var themeService = App.Current.Services.GetService<IThemeService>()!;
-        var settingsService = App.Current.Services.GetRequiredService<ISettingsService>();
-        _appInfoService = App.Current.Services.GetRequiredService<IApplicationInfoService>();
+    public GeneralPage(
+        TopLevelCommandManager topLevelCommandManager,
+        IThemeService themeService,
+        ISettingsService settingsService,
+        IApplicationInfoService appInfoService)
+    {
+        _appInfoService = appInfoService;
+        this.InitializeComponent();
         viewModel = new SettingsViewModel(topLevelCommandManager, _mainTaskScheduler, themeService, settingsService);
     }
 

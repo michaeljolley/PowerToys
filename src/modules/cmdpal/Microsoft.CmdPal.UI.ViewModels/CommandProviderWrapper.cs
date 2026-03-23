@@ -250,15 +250,18 @@ public sealed class CommandProviderWrapper : ICommandProviderContext
         IServiceProvider serviceProvider,
         ICommandProvider4? four)
     {
-        var settings = serviceProvider.GetRequiredService<ISettingsService>().Settings;
+        var settingsService = serviceProvider.GetRequiredService<ISettingsService>();
+        var settings = settingsService.Settings;
         var contextMenuFactory = serviceProvider.GetService<IContextMenuFactory>()!;
+        var hotkeyManager = serviceProvider.GetRequiredService<HotkeyManager>();
+        var aliasManager = serviceProvider.GetRequiredService<AliasManager>();
         var providerSettings = GetProviderSettings(settings);
         var ourContext = GetProviderContext();
         WeakReference<IPageContext> pageContext = new(this.TopLevelPageContext);
         var make = (ICommandItem? i, TopLevelType t) =>
         {
             CommandItemViewModel commandItemViewModel = new(new(i), pageContext, contextMenuFactory: contextMenuFactory);
-            TopLevelViewModel topLevelViewModel = new(commandItemViewModel, t, ExtensionHost, ourContext, providerSettings, serviceProvider, i, contextMenuFactory: contextMenuFactory);
+            TopLevelViewModel topLevelViewModel = new(commandItemViewModel, t, ExtensionHost, ourContext, providerSettings, settingsService, hotkeyManager, aliasManager, i, contextMenuFactory: contextMenuFactory);
             topLevelViewModel.InitializeProperties();
 
             return topLevelViewModel;

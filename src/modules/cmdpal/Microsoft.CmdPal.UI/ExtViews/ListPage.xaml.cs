@@ -34,6 +34,8 @@ public sealed partial class ListPage : Page,
     IRecipient<ActivateSelectedListItemMessage>,
     IRecipient<ActivateSecondaryCommandMessage>
 {
+    private readonly ISettingsService _settingsService;
+
     private InputSource _lastInputSource;
 
     private int _itemsUpdatedVersion;
@@ -63,8 +65,18 @@ public sealed partial class ListPage : Page,
 
     private ListViewBase ItemView => ViewModel?.IsGridView == true ? ItemsGrid : ItemsList;
 
+    // XAML compatibility shim — will be removed when parents use DI constructor
+#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
     public ListPage()
+        : this(App.Current.Services.GetRequiredService<ISettingsService>())
     {
+    }
+#pragma warning restore CS0618
+
+    public ListPage(ISettingsService settingsService)
+    {
+        _settingsService = settingsService;
+
         this.InitializeComponent();
         this.NavigationCacheMode = NavigationCacheMode.Disabled;
         this.ItemView.Loaded += Items_Loaded;
@@ -184,7 +196,7 @@ public sealed partial class ListPage : Page,
                 return;
             }
 
-            var settings = App.Current.Services.GetRequiredService<ISettingsService>().Settings;
+            var settings = _settingsService.Settings;
             if (settings.SingleClickActivates)
             {
                 ViewModel?.InvokeItemCommand.Execute(item);
@@ -204,7 +216,7 @@ public sealed partial class ListPage : Page,
     {
         if (ItemView.SelectedItem is ListItemViewModel vm)
         {
-            var settings = App.Current.Services.GetRequiredService<ISettingsService>().Settings;
+            var settings = _settingsService.Settings;
             if (!settings.SingleClickActivates)
             {
                 ViewModel?.InvokeItemCommand.Execute(vm);

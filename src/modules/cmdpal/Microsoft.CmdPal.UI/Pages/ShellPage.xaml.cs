@@ -67,20 +67,42 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
 
     private readonly CompositeFormat _pageNavigatedAnnouncement;
 
+    private readonly ShellViewModel _viewModel;
+    private readonly ISettingsService _settingsService;
+    private readonly TopLevelCommandManager _topLevelCommandManager;
+
     private SettingsWindow? _settingsWindow;
     private DockWindow? _dockWindow;
 
     private CancellationTokenSource? _focusAfterLoadedCts;
     private WeakReference<Page>? _lastNavigatedPageRef;
 
-    public ShellViewModel ViewModel { get; private set; } = App.Current.Services.GetService<ShellViewModel>()!;
+    public ShellViewModel ViewModel => _viewModel;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public IHostWindow? HostWindow { get; set; }
 
+    // XAML compatibility shim — will be removed when parents use DI constructor
+#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
     public ShellPage()
+        : this(
+            App.Current.Services.GetRequiredService<ShellViewModel>(),
+            App.Current.Services.GetRequiredService<ISettingsService>(),
+            App.Current.Services.GetRequiredService<TopLevelCommandManager>())
     {
+    }
+#pragma warning restore CS0618
+
+    public ShellPage(
+        ShellViewModel viewModel,
+        ISettingsService settingsService,
+        TopLevelCommandManager topLevelCommandManager)
+    {
+        _viewModel = viewModel;
+        _settingsService = settingsService;
+        _topLevelCommandManager = topLevelCommandManager;
+
         this.InitializeComponent();
 
         // how we are doing navigation around
@@ -112,7 +134,7 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
         var pageAnnouncementFormat = ResourceLoaderInstance.GetString("ScreenReader_Announcement_NavigatedToPage0");
         _pageNavigatedAnnouncement = CompositeFormat.Parse(pageAnnouncementFormat);
 
-        if (App.Current.Services.GetRequiredService<ISettingsService>().Settings.EnableDock)
+        if (_settingsService.Settings.EnableDock)
         {
             _dockWindow = new DockWindow();
             _dockWindow.Show();
@@ -126,14 +148,14 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
     {
         get
         {
-            var settings = App.Current.Services.GetRequiredService<ISettingsService>().Settings;
+            var settings = _settingsService.Settings;
             return settings.DisableAnimations ? _noAnimation : _slideRightTransition;
         }
     }
 
     public void Receive(NavigateBackMessage message)
     {
-        var settings = App.Current.Services.GetRequiredService<ISettingsService>().Settings;
+        var settings = _settingsService.Settings;
 
         if (RootFrame.CanGoBack)
         {
@@ -363,7 +385,7 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
 
     private void SummonOnUiThread(HotkeySummonMessage message)
     {
-        var settings = App.Current.Services.GetRequiredService<ISettingsService>().Settings;
+        var settings = _settingsService.Settings;
         var commandId = message.CommandId;
         var isRoot = string.IsNullOrEmpty(commandId);
         if (isRoot)
@@ -389,8 +411,7 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
             {
                 // For a hotkey bound to a command, first lookup the
                 // command from our list of toplevel commands.
-                var tlcManager = App.Current.Services.GetService<TopLevelCommandManager>()!;
-                var topLevelCommand = tlcManager.LookupCommand(commandId);
+                var topLevelCommand = _topLevelCommandManager.LookupCommand(commandId);
                 if (topLevelCommand is not null)
                 {
                     var command = topLevelCommand.CommandViewModel.Model.Unsafe;

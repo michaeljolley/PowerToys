@@ -33,11 +33,19 @@ public sealed partial class ContextMenu : UserControl,
 
     public ContextMenuViewModel ViewModel { get; }
 
+    // XAML compatibility shim — will be removed when parents use DI constructor
+#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
     public ContextMenu()
+        : this(App.Current.Services.GetRequiredService<IFuzzyMatcherProvider>())
+    {
+    }
+#pragma warning restore CS0618
+
+    public ContextMenu(IFuzzyMatcherProvider fuzzyMatcherProvider)
     {
         this.InitializeComponent();
 
-        ViewModel = new ContextMenuViewModel(App.Current.Services.GetRequiredService<IFuzzyMatcherProvider>());
+        ViewModel = new ContextMenuViewModel(fuzzyMatcherProvider);
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
 
         // RegisterAll isn't AOT compatible

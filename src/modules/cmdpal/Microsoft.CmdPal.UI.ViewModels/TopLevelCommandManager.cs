@@ -16,7 +16,6 @@ using Microsoft.CmdPal.UI.ViewModels.Messages;
 using Microsoft.CmdPal.UI.ViewModels.Services;
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.CmdPal.UI.ViewModels;
 
@@ -35,6 +34,8 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
     private readonly IServiceProvider _serviceProvider;
     private readonly ICommandProviderCache _commandProviderCache;
     private readonly TaskScheduler _taskScheduler;
+    private readonly IEnumerable<ICommandProvider> _commandProviders;
+    private readonly IExtensionService _extensionService;
 
     private readonly List<CommandProviderWrapper> _builtInCommands = [];
     private readonly List<CommandProviderWrapper> _extensionCommandProviders = [];
@@ -48,12 +49,19 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
     private CancellationTokenSource _extensionLoadCts = new();
     private CancellationToken _currentExtensionLoadCancellationToken;
 
-    public TopLevelCommandManager(IServiceProvider serviceProvider, ICommandProviderCache commandProviderCache)
+    public TopLevelCommandManager(
+        IServiceProvider serviceProvider,
+        ICommandProviderCache commandProviderCache,
+        TaskScheduler taskScheduler,
+        IEnumerable<ICommandProvider> commandProviders,
+        IExtensionService extensionService)
     {
         _serviceProvider = serviceProvider;
         _commandProviderCache = commandProviderCache;
+        _taskScheduler = taskScheduler;
+        _commandProviders = commandProviders;
+        _extensionService = extensionService;
         _currentExtensionLoadCancellationToken = _extensionLoadCts.Token;
-        _taskScheduler = _serviceProvider.GetService<TaskScheduler>()!;
         WeakReferenceMessenger.Default.Register<ReloadCommandsMessage>(this);
         WeakReferenceMessenger.Default.Register<PinCommandItemMessage>(this);
         WeakReferenceMessenger.Default.Register<UnpinCommandItemMessage>(this);
@@ -91,8 +99,7 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
 
         // Load built-In commands first. These are all in-proc, and
         // owned by our ServiceProvider.
-        var builtInCommands = _serviceProvider.GetServices<ICommandProvider>();
-        foreach (var provider in builtInCommands)
+        foreach (var provider in _commandProviders)
         {
             CommandProviderWrapper wrapper = new(provider, _taskScheduler);
             lock (_commandProvidersLock)
@@ -276,8 +283,7 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
         _extensionLoadCts = new();
         _currentExtensionLoadCancellationToken = _extensionLoadCts.Token;
 
-        var extensionService = _serviceProvider.GetService<IExtensionService>()!;
-        await extensionService.SignalStopExtensionsAsync().ConfigureAwait(false);
+        await _extensionService.SignalStopExtensionsAsync().ConfigureAwait(false);
 
         lock (TopLevelCommands)
         {
@@ -303,14 +309,12 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
     [RelayCommand]
     public async Task<bool> LoadExtensionsAsync()
     {
-        var extensionService = _serviceProvider.GetService<IExtensionService>()!;
-
-        extensionService.OnExtensionAdded -= ExtensionService_OnExtensionAdded;
-        extensionService.OnExtensionRemoved -= ExtensionService_OnExtensionRemoved;
+        _extensionService.OnExtensionAdded -= ExtensionService_OnExtensionAdded;
+        _extensionService.OnExtensionRemoved -= ExtensionService_OnExtensionRemoved;
 
         var ct = _currentExtensionLoadCancellationToken;
 
-        var extensions = (await extensionService.GetInstalledExtensionsAsync().ConfigureAwait(false)).ToImmutableList();
+        var extensions = (await _extensionService.GetInstalledExtensionsAsync().ConfigureAwait(false)).ToImmutableList();
         lock (_commandProvidersLock)
         {
             _extensionCommandProviders.Clear();
@@ -318,8 +322,8 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
 
         await StartExtensionsAndGetCommands(extensions, ct).ConfigureAwait(false);
 
-        extensionService.OnExtensionAdded += ExtensionService_OnExtensionAdded;
-        extensionService.OnExtensionRemoved += ExtensionService_OnExtensionRemoved;
+        _extensionService.OnExtensionAdded += ExtensionService_OnExtensionAdded;
+        _extensionService.OnExtensionRemoved += ExtensionService_OnExtensionRemoved;
 
         IsLoading = false;
 

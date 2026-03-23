@@ -72,6 +72,9 @@ public sealed partial class MainWindow : WindowEx,
     private readonly LocalKeyboardListener _localKeyboardListener;
     private readonly HiddenOwnerWindowBehavior _hiddenOwnerBehavior = new();
     private readonly IThemeService _themeService;
+    private readonly ISettingsService _settingsService;
+    private readonly TrayIconService _trayIconService;
+    private readonly IExtensionService _extensionService;
     private readonly WindowThemeSynchronizer _windowThemeSynchronizer;
     private bool _ignoreHotKeyWhenFullScreen = true;
     private bool _suppressDpiChange;
@@ -102,16 +105,36 @@ public sealed partial class MainWindow : WindowEx,
 
     public bool IsVisibleToUser { get; private set; } = true;
 
+#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
     public MainWindow()
+        : this(
+            App.Current.Services.GetService<MainWindowViewModel>()!,
+            App.Current.Services.GetRequiredService<IThemeService>(),
+            App.Current.Services.GetRequiredService<ISettingsService>(),
+            App.Current.Services.GetService<TrayIconService>()!,
+            App.Current.Services.GetService<IExtensionService>()!)
     {
-        InitializeComponent();
+    }
+#pragma warning restore CS0618
 
-        ViewModel = App.Current.Services.GetService<MainWindowViewModel>()!;
+    internal MainWindow(
+        MainWindowViewModel viewModel,
+        IThemeService themeService,
+        ISettingsService settingsService,
+        TrayIconService trayIconService,
+        IExtensionService extensionService)
+    {
+        ViewModel = viewModel;
+        _themeService = themeService;
+        _settingsService = settingsService;
+        _trayIconService = trayIconService;
+        _extensionService = extensionService;
+
+        InitializeComponent();
 
         _autoGoHomeTimer = new DispatcherTimer();
         _autoGoHomeTimer.Tick += OnAutoGoHomeTimerOnTick;
 
-        _themeService = App.Current.Services.GetRequiredService<IThemeService>();
         _themeService.ThemeChanged += ThemeServiceOnThemeChanged;
         _windowThemeSynchronizer = new WindowThemeSynchronizer(_themeService, this);
 
@@ -170,7 +193,7 @@ public sealed partial class MainWindow : WindowEx,
 
         // Load our settings, and then also wire up a settings changed handler
         HotReloadSettings();
-        App.Current.Services.GetRequiredService<ISettingsService>().SettingsChanged += SettingsChangedHandler;
+        _settingsService.SettingsChanged += SettingsChangedHandler;
 
         // Make sure that we update the acrylic theme when the OS theme changes
         RootElement.ActualThemeChanged += (s, e) => DispatcherQueue.TryEnqueue(UpdateBackdrop);
@@ -292,7 +315,7 @@ public sealed partial class MainWindow : WindowEx,
 
     private void RestoreWindowPositionFromSavedSettings()
     {
-        var settings = App.Current.Services.GetRequiredService<ISettingsService>().Settings;
+        var settings = _settingsService.Settings;
         RestoreWindowPosition(settings?.LastWindowPosition);
     }
 
@@ -363,10 +386,10 @@ public sealed partial class MainWindow : WindowEx,
 
     private void HotReloadSettings()
     {
-        var settings = App.Current.Services.GetRequiredService<ISettingsService>().Settings;
+        var settings = _settingsService.Settings;
 
         SetupHotkey(settings);
-        App.Current.Services.GetService<TrayIconService>()!.SetupTrayIcon(settings.ShowSystemTrayIcon);
+        _trayIconService.SetupTrayIcon(settings.ShowSystemTrayIcon);
 
         _ignoreHotKeyWhenFullScreen = settings.IgnoreShortcutWhenFullscreen;
 
@@ -707,7 +730,7 @@ public sealed partial class MainWindow : WindowEx,
     {
         _isLoadedFromDock = false;
 
-        var settings = App.Current.Services.GetRequiredService<ISettingsService>().Settings;
+        var settings = _settingsService.Settings;
 
         // Start session tracking
         _sessionStopwatch = Stopwatch.StartNew();
@@ -895,15 +918,12 @@ public sealed partial class MainWindow : WindowEx,
 
     internal void MainWindow_Closed(object sender, WindowEventArgs args)
     {
-        var serviceProvider = App.Current.Services;
-
         if (!_isLoadedFromDock)
         {
             UpdateWindowPositionInMemory();
         }
 
-        var settingsService = serviceProvider.GetRequiredService<ISettingsService>();
-        var settings = settingsService.Settings;
+        var settings = _settingsService.Settings;
         if (settings is not null)
         {
             // If we were last shown from the dock, _currentWindowPosition still holds
@@ -911,14 +931,13 @@ public sealed partial class MainWindow : WindowEx,
             if (_currentWindowPosition.IsSizeValid)
             {
                 settings.LastWindowPosition = _currentWindowPosition;
-                settingsService.Save();
+                _settingsService.Save();
             }
         }
 
-        var extensionService = serviceProvider.GetService<IExtensionService>()!;
-        extensionService.SignalStopExtensionsAsync();
+        _extensionService.SignalStopExtensionsAsync();
 
-        App.Current.Services.GetService<TrayIconService>()!.Destroy();
+        _trayIconService.Destroy();
 
         // WinUI bug is causing a crash on shutdown when FailFastOnErrors is set to true (#51773592).
         // Workaround by turning it off before shutdown.
@@ -1081,7 +1100,7 @@ public sealed partial class MainWindow : WindowEx,
                         }
                         else if (uri.StartsWith("x-cmdpal://reload", StringComparison.OrdinalIgnoreCase))
                         {
-                            var settings = App.Current.Services.GetRequiredService<ISettingsService>().Settings;
+                            var settings = _settingsService.Settings;
                             if (settings?.AllowExternalReload == true)
                             {
                                 Logger.LogInfo("External Reload triggered");

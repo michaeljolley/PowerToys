@@ -19,18 +19,36 @@ namespace Microsoft.CmdPal.UI.Settings;
 public sealed partial class DockSettingsPage : Page
 {
     private readonly TaskScheduler _mainTaskScheduler = TaskScheduler.FromCurrentSynchronizationContext();
+    private readonly TopLevelCommandManager _topLevelCommandManager;
+    private readonly ISettingsService _settingsService;
+    private readonly DockViewModel _dockViewModel;
 
     internal SettingsViewModel ViewModel { get; }
 
     public List<DockBandSettingsViewModel> AllDockBandItems => GetAllBandSettings();
 
+#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
     public DockSettingsPage()
+        : this(
+            App.Current.Services.GetService<IThemeService>()!,
+            App.Current.Services.GetService<TopLevelCommandManager>()!,
+            App.Current.Services.GetRequiredService<ISettingsService>(),
+            App.Current.Services.GetService<DockViewModel>()!)
     {
-        this.InitializeComponent();
+    }
+#pragma warning restore CS0618
 
-        var themeService = App.Current.Services.GetService<IThemeService>()!;
-        var topLevelCommandManager = App.Current.Services.GetService<TopLevelCommandManager>()!;
-        var settingsService = App.Current.Services.GetRequiredService<ISettingsService>();
+    public DockSettingsPage(
+        IThemeService themeService,
+        TopLevelCommandManager topLevelCommandManager,
+        ISettingsService settingsService,
+        DockViewModel dockViewModel)
+    {
+        _topLevelCommandManager = topLevelCommandManager;
+        _settingsService = settingsService;
+        _dockViewModel = dockViewModel;
+
+        this.InitializeComponent();
 
         ViewModel = new SettingsViewModel(topLevelCommandManager, _mainTaskScheduler, themeService, settingsService);
 
@@ -176,9 +194,7 @@ public sealed partial class DockSettingsPage : Page
     {
         var allBands = new List<TopLevelViewModel>();
 
-        var tlcManager = App.Current.Services.GetService<TopLevelCommandManager>()!;
-
-        foreach (var item in tlcManager.GetDockBandsSnapshot())
+        foreach (var item in _topLevelCommandManager.GetDockBandsSnapshot())
         {
             if (item.IsDockBand)
             {
@@ -193,23 +209,19 @@ public sealed partial class DockSettingsPage : Page
     {
         var allSettings = new List<DockBandSettingsViewModel>();
 
-        // var allBands = GetAllBands();
-        var tlcManager = App.Current.Services.GetService<TopLevelCommandManager>()!;
-        var settingsModel = App.Current.Services.GetRequiredService<ISettingsService>().Settings;
-        var settingsService = App.Current.Services.GetRequiredService<ISettingsService>();
-        var dockViewModel = App.Current.Services.GetService<DockViewModel>()!;
-        var allBands = tlcManager.GetDockBandsSnapshot();
+        var settingsModel = _settingsService.Settings;
+        var allBands = _topLevelCommandManager.GetDockBandsSnapshot();
         foreach (var band in allBands)
         {
             var setting = band.DockBandSettings;
             if (setting is not null)
             {
-                var bandVm = dockViewModel.FindBandByTopLevel(band);
+                var bandVm = _dockViewModel.FindBandByTopLevel(band);
                 allSettings.Add(new(
                     dockSettingsModel: setting,
                     topLevelAdapter: band,
                     bandViewModel: bandVm,
-                    settingsService: settingsService
+                    settingsService: _settingsService
                 ));
             }
         }
