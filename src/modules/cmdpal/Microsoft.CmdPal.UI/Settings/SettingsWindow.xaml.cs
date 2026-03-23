@@ -9,12 +9,12 @@ using Microsoft.CmdPal.UI.Helpers;
 using Microsoft.CmdPal.UI.Messages;
 using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
+using Microsoft.CmdPal.UI.ViewModels.Services;
 using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Navigation;
 using Windows.System;
 using WinUIEx;
 using RS_ = Microsoft.CmdPal.UI.Helpers.ResourceLoaderInstance;
@@ -31,13 +31,44 @@ public sealed partial class SettingsWindow : WindowEx,
 
     private readonly NavigationViewItem? _internalNavItem;
 
+    private readonly Dictionary<string, Page> _pages;
+
+    private readonly TopLevelCommandManager _topLevelCommandManager;
+
+    private readonly IThemeService _themeService;
+
+    private readonly ISettingsService _settingsService;
+
+    private string? _previousNavigationTag;
+
     public ObservableCollection<Crumb> BreadCrumbs { get; } = [];
 
     // Gets or sets optional action invoked after NavigationView is loaded.
     public Action? NavigationViewLoaded { get; set; }
 
-    public SettingsWindow()
+    internal SettingsWindow(
+        GeneralPage generalPage,
+        AppearancePage appearancePage,
+        ExtensionsPage extensionsPage,
+        DockSettingsPage dockSettingsPage,
+        InternalPage internalPage,
+        TopLevelCommandManager topLevelCommandManager,
+        IThemeService themeService,
+        ISettingsService settingsService)
     {
+        _topLevelCommandManager = topLevelCommandManager;
+        _themeService = themeService;
+        _settingsService = settingsService;
+
+        _pages = new Dictionary<string, Page>
+        {
+            ["General"] = generalPage,
+            ["Appearance"] = appearancePage,
+            ["Extensions"] = extensionsPage,
+            ["Dock"] = dockSettingsPage,
+            ["Internal"] = internalPage,
+        };
+
         this.InitializeComponent();
         this.ExtendsContentIntoTitleBar = true;
         this.SetIcon();
@@ -112,56 +143,59 @@ public sealed partial class SettingsWindow : WindowEx,
 
     internal void Navigate(string page)
     {
-        Type? pageType;
-        switch (page)
+        if (page == string.Empty)
         {
-            case "General":
-                pageType = typeof(GeneralPage);
-                break;
-            case "Appearance":
-                pageType = typeof(AppearancePage);
-                break;
-            case "Extensions":
-                pageType = typeof(ExtensionsPage);
-                break;
-            case "Dock":
-                pageType = typeof(DockSettingsPage);
-                break;
-            case "Internal":
-                pageType = typeof(InternalPage);
-                break;
-            case "":
-                // intentional no-op: empty tag means no navigation
-                pageType = null;
-                break;
-            default:
-                // unknown page, no-op and log
-                pageType = null;
-                Logger.LogError($"Unknown settings page tag '{page}'");
-                break;
+            // intentional no-op: empty tag means no navigation
+            return;
         }
 
-        if (pageType is not null)
+        if (!_pages.TryGetValue(page, out var targetPage))
         {
-            NavFrame.Navigate(pageType);
+            Logger.LogError($"Unknown settings page tag '{page}'");
+            return;
+        }
 
-            // Now, make sure to actually select the correct menu item too
-            foreach (var obj in NavView.MenuItems)
+        _previousNavigationTag = null;
+        NavFrame.Content = targetPage;
+        AppTitleBar.IsBackButtonVisible = false;
+
+        // Select the correct menu item
+        foreach (var obj in NavView.MenuItems)
+        {
+            if (obj is NavigationViewItem item && item.Tag is string s && s == page)
             {
-                if (obj is NavigationViewItem item)
-                {
-                    if (item.Tag is string s && s == page)
-                    {
-                        NavView.SelectedItem = item;
-                    }
-                }
+                NavView.SelectedItem = item;
+                break;
             }
         }
+
+        // Update breadcrumbs
+        BreadCrumbs.Clear();
+        var breadcrumbTitle = page switch
+        {
+            "General" => RS_.GetString("Settings_PageTitles_GeneralPage"),
+            "Appearance" => RS_.GetString("Settings_PageTitles_AppearancePage"),
+            "Extensions" => RS_.GetString("Settings_PageTitles_ExtensionsPage"),
+            "Dock" => RS_.GetString("Settings_PageTitles_DockPage"),
+            "Internal" => "Internal",
+            _ => $"[{page}]",
+        };
+        BreadCrumbs.Add(new(breadcrumbTitle, page));
     }
 
     private void Navigate(ProviderSettingsViewModel extension)
     {
-        NavFrame.Navigate(typeof(ExtensionPage), extension);
+        _previousNavigationTag = "Extensions";
+        var extensionPage = new ExtensionPage(_topLevelCommandManager, _themeService, _settingsService) { ViewModel = extension };
+        NavFrame.Content = extensionPage;
+        AppTitleBar.IsBackButtonVisible = true;
+
+        NavView.SelectedItem = ExtensionPageNavItem;
+
+        BreadCrumbs.Clear();
+        var extensionsPageType = RS_.GetString("Settings_PageTitles_ExtensionsPage");
+        BreadCrumbs.Add(new(extensionsPageType, "Extensions"));
+        BreadCrumbs.Add(new(extension.DisplayName, extension));
     }
 
     private void PositionCentered()
@@ -229,9 +263,9 @@ public sealed partial class SettingsWindow : WindowEx,
 
     private void TryGoBack()
     {
-        if (NavFrame.CanGoBack)
+        if (_previousNavigationTag != null)
         {
-            NavFrame.GoBack();
+            Navigate(_previousNavigationTag);
         }
     }
 
@@ -281,54 +315,6 @@ public sealed partial class SettingsWindow : WindowEx,
     public void Dispose()
     {
         _localKeyboardListener?.Dispose();
-    }
-
-    private void NavFrame_OnNavigated(object sender, NavigationEventArgs e)
-    {
-        BreadCrumbs.Clear();
-
-        if (e.SourcePageType == typeof(GeneralPage))
-        {
-            NavView.SelectedItem = GeneralPageNavItem;
-            var pageType = RS_.GetString("Settings_PageTitles_GeneralPage");
-            BreadCrumbs.Add(new(pageType, pageType));
-        }
-        else if (e.SourcePageType == typeof(AppearancePage))
-        {
-            NavView.SelectedItem = AppearancePageNavItem;
-            var pageType = RS_.GetString("Settings_PageTitles_AppearancePage");
-            BreadCrumbs.Add(new(pageType, pageType));
-        }
-        else if (e.SourcePageType == typeof(ExtensionsPage))
-        {
-            NavView.SelectedItem = ExtensionPageNavItem;
-            var pageType = RS_.GetString("Settings_PageTitles_ExtensionsPage");
-            BreadCrumbs.Add(new(pageType, pageType));
-        }
-        else if (e.SourcePageType == typeof(DockSettingsPage))
-        {
-            NavView.SelectedItem = DockSettingsPageNavItem;
-            var pageType = RS_.GetString("Settings_PageTitles_DockPage");
-            BreadCrumbs.Add(new(pageType, pageType));
-        }
-        else if (e.SourcePageType == typeof(ExtensionPage) && e.Parameter is ProviderSettingsViewModel vm)
-        {
-            NavView.SelectedItem = ExtensionPageNavItem;
-            var extensionsPageType = RS_.GetString("Settings_PageTitles_ExtensionsPage");
-            BreadCrumbs.Add(new(extensionsPageType, extensionsPageType));
-            BreadCrumbs.Add(new(vm.DisplayName, vm));
-        }
-        else if (e.SourcePageType == typeof(InternalPage) && _internalNavItem is not null)
-        {
-            NavView.SelectedItem = _internalNavItem;
-            var pageType = "Internal";
-            BreadCrumbs.Add(new(pageType, pageType));
-        }
-        else
-        {
-            BreadCrumbs.Add(new($"[{e.SourcePageType?.Name}]", string.Empty));
-            Logger.LogError($"Unknown breadcrumb for page type '{e.SourcePageType}'");
-        }
     }
 }
 

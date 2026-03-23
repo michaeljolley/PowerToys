@@ -7,7 +7,6 @@ using ManagedCommon;
 using Microsoft.CmdPal.Common.Services;
 using Microsoft.CmdPal.UI.Messages;
 using Microsoft.CommandPalette.Extensions.Toolkit;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Windows.System;
 using Page = Microsoft.UI.Xaml.Controls.Page;
@@ -20,13 +19,6 @@ namespace Microsoft.CmdPal.UI.Settings;
 public sealed partial class InternalPage : Page
 {
     private readonly IApplicationInfoService _appInfoService;
-
-#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
-    public InternalPage()
-        : this(App.Current.Services.GetRequiredService<IApplicationInfoService>())
-    {
-    }
-#pragma warning restore CS0618
 
     public InternalPage(IApplicationInfoService appInfoService)
     {

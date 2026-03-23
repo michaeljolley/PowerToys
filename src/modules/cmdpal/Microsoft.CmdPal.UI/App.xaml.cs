@@ -60,12 +60,7 @@ public partial class App : Application, IDisposable
     /// <summary>
     /// Gets the <see cref="IServiceProvider"/> instance to resolve application services.
     /// </summary>
-    /// <remarks>
-    /// Deprecated: Use constructor injection instead. This property exists only to support
-    /// parameterless XAML constructors during the DI migration. Do not add new usages.
-    /// </remarks>
-    [Obsolete("Use constructor injection. This property will be removed once all XAML constructors are migrated to DI.")]
-    public IServiceProvider Services { get; }
+    private IServiceProvider Services { get; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="App"/> class.
@@ -80,11 +75,14 @@ public partial class App : Application, IDisposable
         _globalErrorHandler.Register(this, GlobalErrorHandler.Options.Default, appInfoService);
 #endif
 
-#pragma warning disable CS0618 // Obsolete — Services initialization
         Services = ConfigureServices(appInfoService);
 
-        IconCacheProvider.Initialize(Services);
-#pragma warning restore CS0618
+        IconCacheProvider.Initialize(
+            Services.GetRequiredKeyedService<IIconSourceProvider>(WellKnownIconSize.Size16),
+            Services.GetRequiredKeyedService<IIconSourceProvider>(WellKnownIconSize.Size20),
+            Services.GetRequiredKeyedService<IIconSourceProvider>(WellKnownIconSize.Size32),
+            Services.GetRequiredKeyedService<IIconSourceProvider>(WellKnownIconSize.Size64),
+            Services.GetRequiredKeyedService<IIconSourceProvider>(WellKnownIconSize.Size256));
 
         this.InitializeComponent();
 
@@ -114,7 +112,7 @@ public partial class App : Application, IDisposable
     /// <param name="args">Details about the launch request and process.</param>
     protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
-        AppWindow = new MainWindow();
+        AppWindow = Services.GetRequiredService<MainWindow>();
 
         var activatedEventArgs = Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs();
         ((MainWindow)AppWindow).HandleLaunchNonUI(activatedEventArgs);
@@ -206,6 +204,18 @@ public partial class App : Application, IDisposable
 
         services.AddSingleton<IThemeService, ThemeService>();
         services.AddSingleton<ResourceSwapper>();
+
+        services.AddSingleton<Pages.ShellPage>();
+        services.AddSingleton<MainWindow>();
+
+        // Settings pages (Transient so each SettingsWindow gets fresh instances)
+        services.AddTransient<Settings.GeneralPage>();
+        services.AddTransient<Settings.AppearancePage>();
+        services.AddTransient<Settings.ExtensionsPage>();
+        services.AddTransient<Settings.DockSettingsPage>();
+        services.AddTransient<Settings.InternalPage>();
+        services.AddTransient<Settings.SettingsWindow>();
+        services.AddSingleton<Func<Settings.SettingsWindow>>(sp => () => sp.GetRequiredService<Settings.SettingsWindow>());
 
         services.AddIconServices(dispatcherQueue);
     }

@@ -7,7 +7,6 @@ using CommunityToolkit.WinUI.Controls;
 using ManagedCommon;
 using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -20,22 +19,13 @@ public sealed partial class ExtensionsPage : Page
 
     private readonly SettingsViewModel? viewModel;
 
-#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
-    public ExtensionsPage()
-        : this(
-            App.Current.Services.GetService<TopLevelCommandManager>()!,
-            App.Current.Services.GetService<IThemeService>()!,
-            App.Current.Services.GetRequiredService<ISettingsService>())
-    {
-    }
-#pragma warning restore CS0618
-
     public ExtensionsPage(
         TopLevelCommandManager topLevelCommandManager,
         IThemeService themeService,
         ISettingsService settingsService)
     {
         this.InitializeComponent();
+        FallbackRankerDialog.InitializeDependencies(topLevelCommandManager, themeService, settingsService);
         viewModel = new SettingsViewModel(topLevelCommandManager, _mainTaskScheduler, themeService, settingsService);
     }
 

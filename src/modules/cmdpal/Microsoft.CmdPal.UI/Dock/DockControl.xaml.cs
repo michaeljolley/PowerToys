@@ -7,6 +7,8 @@ using System.Collections.Specialized;
 using System.Runtime.InteropServices;
 using CommunityToolkit.Mvvm.Messaging;
 using ManagedCommon;
+using Microsoft.CmdPal.Common.Text;
+using Microsoft.CmdPal.UI.Controls;
 using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Dock;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
@@ -24,6 +26,7 @@ namespace Microsoft.CmdPal.UI.Dock;
 
 public sealed partial class DockControl : UserControl, IRecipient<CloseContextMenuMessage>, IRecipient<EnterDockEditModeMessage>
 {
+    private readonly ContextMenu _contextControl;
     private DockViewModel _viewModel;
 
     internal DockViewModel ViewModel => _viewModel;
@@ -63,10 +66,12 @@ public sealed partial class DockControl : UserControl, IRecipient<CloseContextMe
         }
     }
 
-    internal DockControl(DockViewModel viewModel)
+    internal DockControl(DockViewModel viewModel, IFuzzyMatcherProvider fuzzyMatcherProvider)
     {
+        _contextControl = new ContextMenu(fuzzyMatcherProvider);
         _viewModel = viewModel;
         InitializeComponent();
+        ContextControlHost.Content = _contextControl;
         WeakReferenceMessenger.Default.Register<CloseContextMenuMessage>(this);
         WeakReferenceMessenger.Default.Register<EnterDockEditModeMessage>(this);
 
@@ -230,8 +235,8 @@ public sealed partial class DockControl : UserControl, IRecipient<CloseContextMe
             // Normal mode - show the command context menu
             if (item.HasMoreCommands)
             {
-                ContextControl.ViewModel.SelectedItem = item;
-                ContextControl.ShowFilterBox = true;
+                _contextControl.ViewModel.SelectedItem = item;
+                _contextControl.ShowFilterBox = true;
                 ContextMenuFlyout.ShowAt(
                     dockItem,
                     new FlyoutShowOptions()
@@ -295,7 +300,7 @@ public sealed partial class DockControl : UserControl, IRecipient<CloseContextMe
     {
         // We need to wait until our flyout is opened to try and toss focus
         // at its search box. The control isn't in the UI tree before that
-        ContextControl.FocusSearchBox();
+        _contextControl.FocusSearchBox();
     }
 
     public void Receive(CloseContextMenuMessage message)
@@ -318,8 +323,8 @@ public sealed partial class DockControl : UserControl, IRecipient<CloseContextMe
         var item = this.ViewModel.GetContextMenuForDock();
         if (item.HasMoreCommands)
         {
-            ContextControl.ViewModel.SelectedItem = item;
-            ContextControl.ShowFilterBox = false;
+            _contextControl.ViewModel.SelectedItem = item;
+            _contextControl.ShowFilterBox = false;
             ContextMenuFlyout.ShowAt(
             this.RootGrid,
             new FlyoutShowOptions()

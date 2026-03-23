@@ -28,7 +28,7 @@
         <TitleBar
             x:Name="AppTitleBar"
             BackRequested="TitleBar_BackRequested"
-            IsBackButtonVisible="{x:Bind NavFrame.CanGoBack, Mode=OneWay}"
+            IsBackButtonVisible="False"
             IsTabStop="False"
             PaneToggleRequested="AppTitleBar_PaneToggleRequested">
             <TitleBar.Resources>
@@ -111,8 +111,7 @@
                 </Grid>
                 <Frame
                     x:Name="NavFrame"
-                    Grid.Row="1"
-                    Navigated="NavFrame_OnNavigated" />
+                    Grid.Row="1" />
             </Grid>
         </NavigationView>
     </Grid>

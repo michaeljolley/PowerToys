@@ -9,7 +9,6 @@ using Microsoft.CmdPal.UI.Helpers;
 using Microsoft.CmdPal.UI.Messages;
 using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -32,14 +31,6 @@ public sealed partial class ContextMenu : UserControl,
     }
 
     public ContextMenuViewModel ViewModel { get; }
-
-    // XAML compatibility shim — will be removed when parents use DI constructor
-#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
-    public ContextMenu()
-        : this(App.Current.Services.GetRequiredService<IFuzzyMatcherProvider>())
-    {
-    }
-#pragma warning restore CS0618
 
     public ContextMenu(IFuzzyMatcherProvider fuzzyMatcherProvider)
     {

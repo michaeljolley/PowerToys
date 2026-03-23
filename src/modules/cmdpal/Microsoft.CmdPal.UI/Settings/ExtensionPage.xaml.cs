@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for more information.
 
 using Microsoft.CmdPal.UI.ViewModels;
+using Microsoft.CmdPal.UI.ViewModels.Services;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Navigation;
 
 namespace Microsoft.CmdPal.UI.Settings;
 
@@ -12,18 +12,16 @@ public sealed partial class ExtensionPage : Page
 {
     private readonly TaskScheduler _mainTaskScheduler = TaskScheduler.FromCurrentSynchronizationContext();
 
-    public ProviderSettingsViewModel? ViewModel { get; private set; }
+    public ProviderSettingsViewModel? ViewModel { get; internal set; }
 
-    public ExtensionPage()
+    public ExtensionPage(
+        TopLevelCommandManager topLevelCommandManager,
+        IThemeService themeService,
+        ISettingsService settingsService)
     {
         this.InitializeComponent();
-    }
 
-    protected override void OnNavigatedTo(NavigationEventArgs e)
-    {
-        ViewModel = e.Parameter is ProviderSettingsViewModel vm
-            ? vm
-            : throw new ArgumentException($"{nameof(ExtensionPage)} navigation args should be passed a {nameof(ProviderSettingsViewModel)}");
+        FallbackRankerDialog.InitializeDependencies(topLevelCommandManager, themeService, settingsService);
     }
 
     private async void RankButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)

@@ -52,7 +52,7 @@
                 Opened="ContextMenuFlyout_Opened"
                 ShouldConstrainToRootBounds="False"
                 SystemBackdrop="{ThemeResource AcrylicBackgroundFillColorDefaultBackdrop}">
-                <cpcontrols:ContextMenu x:Name="ContextControl" />
+                <ContentControl x:Name="ContextControlHost" />
             </Flyout>
 
             <Style x:Key="HotkeyStyle" TargetType="Border">

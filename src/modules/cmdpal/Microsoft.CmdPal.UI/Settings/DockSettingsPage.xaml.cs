@@ -8,7 +8,6 @@ using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Dock;
 using Microsoft.CmdPal.UI.ViewModels.Services;
 using Microsoft.CmdPal.UI.ViewModels.Settings;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
@@ -26,17 +25,6 @@ public sealed partial class DockSettingsPage : Page
     internal SettingsViewModel ViewModel { get; }
 
     public List<DockBandSettingsViewModel> AllDockBandItems => GetAllBandSettings();
-
-#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
-    public DockSettingsPage()
-        : this(
-            App.Current.Services.GetService<IThemeService>()!,
-            App.Current.Services.GetService<TopLevelCommandManager>()!,
-            App.Current.Services.GetRequiredService<ISettingsService>(),
-            App.Current.Services.GetService<DockViewModel>()!)
-    {
-    }
-#pragma warning restore CS0618
 
     public DockSettingsPage(
         IThemeService themeService,

@@ -4,7 +4,6 @@
 
 using Microsoft.CmdPal.UI.Controls;
 using Microsoft.CmdPal.UI.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.CmdPal.UI.Helpers;
 
@@ -30,13 +29,18 @@ public static partial class IconCacheProvider
     private static IIconSourceProvider _provider64 = null!;
     private static IIconSourceProvider _provider256 = null!;
 
-    public static void Initialize(IServiceProvider serviceProvider)
+    internal static void Initialize(
+        IIconSourceProvider provider16,
+        IIconSourceProvider provider20,
+        IIconSourceProvider provider32,
+        IIconSourceProvider provider64,
+        IIconSourceProvider provider256)
     {
-        _provider16 = serviceProvider.GetRequiredKeyedService<IIconSourceProvider>(WellKnownIconSize.Size16);
-        _provider20 = serviceProvider.GetRequiredKeyedService<IIconSourceProvider>(WellKnownIconSize.Size20);
-        _provider32 = serviceProvider.GetRequiredKeyedService<IIconSourceProvider>(WellKnownIconSize.Size32);
-        _provider64 = serviceProvider.GetRequiredKeyedService<IIconSourceProvider>(WellKnownIconSize.Size64);
-        _provider256 = serviceProvider.GetRequiredKeyedService<IIconSourceProvider>(WellKnownIconSize.Size256);
+        _provider16 = provider16;
+        _provider20 = provider20;
+        _provider32 = provider32;
+        _provider64 = provider64;
+        _provider256 = provider256;
     }
 
     private static async void SourceRequestedCore(IIconSourceProvider service, SourceRequestedEventArgs args)

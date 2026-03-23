@@ -20,7 +20,6 @@ using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
 using Microsoft.CmdPal.UI.ViewModels.Services;
 using Microsoft.CmdPal.ViewModels.Messages;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.PowerToys.Telemetry;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Composition.SystemBackdrops;
@@ -75,6 +74,7 @@ public sealed partial class MainWindow : WindowEx,
     private readonly ISettingsService _settingsService;
     private readonly TrayIconService _trayIconService;
     private readonly IExtensionService _extensionService;
+    private readonly Pages.ShellPage _shellPage;
     private readonly WindowThemeSynchronizer _windowThemeSynchronizer;
     private bool _ignoreHotKeyWhenFullScreen = true;
     private bool _suppressDpiChange;
@@ -105,32 +105,25 @@ public sealed partial class MainWindow : WindowEx,
 
     public bool IsVisibleToUser { get; private set; } = true;
 
-#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
-    public MainWindow()
-        : this(
-            App.Current.Services.GetService<MainWindowViewModel>()!,
-            App.Current.Services.GetRequiredService<IThemeService>(),
-            App.Current.Services.GetRequiredService<ISettingsService>(),
-            App.Current.Services.GetService<TrayIconService>()!,
-            App.Current.Services.GetService<IExtensionService>()!)
-    {
-    }
-#pragma warning restore CS0618
-
     internal MainWindow(
         MainWindowViewModel viewModel,
         IThemeService themeService,
         ISettingsService settingsService,
         TrayIconService trayIconService,
-        IExtensionService extensionService)
+        IExtensionService extensionService,
+        Pages.ShellPage shellPage)
     {
         ViewModel = viewModel;
         _themeService = themeService;
         _settingsService = settingsService;
         _trayIconService = trayIconService;
         _extensionService = extensionService;
+        _shellPage = shellPage;
 
         InitializeComponent();
+
+        ShellPageHost.Content = _shellPage;
+        _shellPage.HostWindow = this;
 
         _autoGoHomeTimer = new DispatcherTimer();
         _autoGoHomeTimer.Tick += OnAutoGoHomeTimerOnTick;

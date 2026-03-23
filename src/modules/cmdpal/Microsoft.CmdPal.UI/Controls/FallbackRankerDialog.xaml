@@ -34,8 +34,8 @@
                 Margin="0,16,0,16"
                 HorizontalAlignment="Stretch"
                 Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
-            <cpcontrols:FallbackRanker
-                x:Name="FallbackRanker"
+            <ContentControl
+                x:Name="FallbackRankerHost"
                 Grid.Row="2"
                 Margin="-24,0,-24,0" />
         </Grid>

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.CmdPal.Common.Text;
 using Microsoft.CmdPal.UI.Messages;
 using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
@@ -20,6 +21,8 @@ public sealed partial class CommandBar : UserControl,
     IRecipient<TryCommandKeybindingMessage>,
     ICurrentPageAware
 {
+    private ContextMenu? _contextControl;
+
     public CommandBarViewModel ViewModel { get; } = new();
 
     public PageViewModel? CurrentPageViewModel
@@ -40,6 +43,12 @@ public sealed partial class CommandBar : UserControl,
         WeakReferenceMessenger.Default.Register<OpenContextMenuMessage>(this);
         WeakReferenceMessenger.Default.Register<CloseContextMenuMessage>(this);
         WeakReferenceMessenger.Default.Register<TryCommandKeybindingMessage>(this);
+    }
+
+    public void InitializeDependencies(IFuzzyMatcherProvider fuzzyMatcherProvider)
+    {
+        _contextControl = new ContextMenu(fuzzyMatcherProvider);
+        ContextControlHost.Content = _contextControl;
     }
 
     public void Receive(OpenContextMenuMessage message)
@@ -149,6 +158,6 @@ public sealed partial class CommandBar : UserControl,
     {
         // We need to wait until our flyout is opened to try and toss focus
         // at its search box. The control isn't in the UI tree before that
-        ContextControl.FocusSearchBox();
+        _contextControl?.FocusSearchBox();
     }
 }

@@ -31,7 +31,10 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
     private static readonly TimeSpan BackgroundStartTimeout = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan BackgroundCommandLoadTimeout = TimeSpan.FromSeconds(60);
 
-    private readonly IServiceProvider _serviceProvider;
+    private readonly ISettingsService _settingsService;
+    private readonly HotkeyManager _hotkeyManager;
+    private readonly AliasManager _aliasManager;
+    private readonly IContextMenuFactory _contextMenuFactory;
     private readonly ICommandProviderCache _commandProviderCache;
     private readonly TaskScheduler _taskScheduler;
     private readonly IEnumerable<ICommandProvider> _commandProviders;
@@ -50,13 +53,19 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
     private CancellationToken _currentExtensionLoadCancellationToken;
 
     public TopLevelCommandManager(
-        IServiceProvider serviceProvider,
+        ISettingsService settingsService,
+        HotkeyManager hotkeyManager,
+        AliasManager aliasManager,
+        IContextMenuFactory contextMenuFactory,
         ICommandProviderCache commandProviderCache,
         TaskScheduler taskScheduler,
         IEnumerable<ICommandProvider> commandProviders,
         IExtensionService extensionService)
     {
-        _serviceProvider = serviceProvider;
+        _settingsService = settingsService;
+        _hotkeyManager = hotkeyManager;
+        _aliasManager = aliasManager;
+        _contextMenuFactory = contextMenuFactory;
         _commandProviderCache = commandProviderCache;
         _taskScheduler = taskScheduler;
         _commandProviders = commandProviders;
@@ -101,7 +110,7 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
         // owned by our ServiceProvider.
         foreach (var provider in _commandProviders)
         {
-            CommandProviderWrapper wrapper = new(provider, _taskScheduler);
+            CommandProviderWrapper wrapper = new(provider, _taskScheduler, _settingsService, _hotkeyManager, _aliasManager, _contextMenuFactory);
             lock (_commandProvidersLock)
             {
                 _builtInCommands.Add(wrapper);
@@ -141,7 +150,7 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
     // May be called from a background thread
     private async Task<TopLevelObjectSets> LoadTopLevelCommandsFromProvider(CommandProviderWrapper commandProvider)
     {
-        await commandProvider.LoadTopLevelCommands(_serviceProvider);
+        await commandProvider.LoadTopLevelCommands();
 
         var commands = await Task.Factory.StartNew(
             () =>
@@ -197,7 +206,7 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
     /// <returns>an awaitable task</returns>
     private async Task UpdateCommandsForProvider(CommandProviderWrapper sender, IItemsChangedEventArgs args)
     {
-        await sender.LoadTopLevelCommands(_serviceProvider);
+        await sender.LoadTopLevelCommands();
 
         List<TopLevelViewModel> newItems = [.. sender.TopLevelItems];
         foreach (var i in sender.FallbackItems)
@@ -461,7 +470,7 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
         {
             await startTask.WaitAsync(ExtensionStartTimeout, ct).ConfigureAwait(false);
             Logger.LogInfo($"Started extension {extension.PackageFullName} in {sw.ElapsedMilliseconds} ms");
-            return ExtensionStartResult.Started(extension, new CommandProviderWrapper(extension, _taskScheduler, _commandProviderCache));
+            return ExtensionStartResult.Started(extension, new CommandProviderWrapper(extension, _taskScheduler, _commandProviderCache, _settingsService, _hotkeyManager, _aliasManager, _contextMenuFactory));
         }
         catch (TimeoutException)
         {
@@ -490,7 +499,7 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
         {
             await startTask.WaitAsync(BackgroundStartTimeout, ct).ConfigureAwait(false);
 
-            var wrapper = new CommandProviderWrapper(extension, _taskScheduler, _commandProviderCache);
+            var wrapper = new CommandProviderWrapper(extension, _taskScheduler, _commandProviderCache, _settingsService, _hotkeyManager, _aliasManager, _contextMenuFactory);
             Logger.LogInfo($"Late-started extension {extension.PackageFullName} in {sw.ElapsedMilliseconds} ms, loading commands and bands");
 
             await RegisterAndLoadCommandsAsync([wrapper], ct).ConfigureAwait(false);
@@ -696,13 +705,13 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
     public void Receive(PinCommandItemMessage message)
     {
         var wrapper = LookupProvider(message.ProviderId);
-        wrapper?.PinCommand(message.CommandId, _serviceProvider);
+        wrapper?.PinCommand(message.CommandId);
     }
 
     public void Receive(UnpinCommandItemMessage message)
     {
         var wrapper = LookupProvider(message.ProviderId);
-        wrapper?.UnpinCommand(message.CommandId, _serviceProvider);
+        wrapper?.UnpinCommand(message.CommandId);
     }
 
     public void Receive(PinToDockMessage message)
@@ -711,11 +720,11 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
         {
             if (message.Pin)
             {
-                wrapper?.PinDockBand(message.CommandId, _serviceProvider);
+                wrapper?.PinDockBand(message.CommandId);
             }
             else
             {
-                wrapper?.UnpinDockBand(message.CommandId, _serviceProvider);
+                wrapper?.UnpinDockBand(message.CommandId);
             }
         }
     }

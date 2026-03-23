@@ -8,7 +8,6 @@ using ManagedCommon;
 using Microsoft.CmdPal.UI.Messages;
 using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -26,16 +25,6 @@ public sealed partial class AppearancePage : Page
     private readonly TaskScheduler _mainTaskScheduler = TaskScheduler.FromCurrentSynchronizationContext();
 
     internal SettingsViewModel ViewModel { get; }
-
-#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
-    public AppearancePage()
-        : this(
-            App.Current.Services.GetRequiredService<IThemeService>(),
-            App.Current.Services.GetService<TopLevelCommandManager>()!,
-            App.Current.Services.GetRequiredService<ISettingsService>())
-    {
-    }
-#pragma warning restore CS0618
 
     public AppearancePage(
         IThemeService themeService,
