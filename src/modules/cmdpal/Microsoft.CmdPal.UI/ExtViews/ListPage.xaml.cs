@@ -10,7 +10,7 @@ using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Commands;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
 using Microsoft.CmdPal.UI.ViewModels.Services;
-using Microsoft.Extensions.DependencyInjection;
+
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
@@ -34,7 +34,7 @@ public sealed partial class ListPage : Page,
     IRecipient<ActivateSelectedListItemMessage>,
     IRecipient<ActivateSecondaryCommandMessage>
 {
-    private readonly ISettingsService _settingsService;
+    private ISettingsService _settingsService = null!;
 
     private InputSource _lastInputSource;
 
@@ -65,23 +65,32 @@ public sealed partial class ListPage : Page,
 
     private ListViewBase ItemView => ViewModel?.IsGridView == true ? ItemsGrid : ItemsList;
 
-    // XAML compatibility shim — will be removed when parents use DI constructor
-#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
+    /// <summary>
+    /// Parameterless constructor required by <see cref="Microsoft.UI.Xaml.Controls.Frame"/> navigation.
+    /// Services must be injected via <see cref="InjectServices"/> before the page is interactive.
+    /// </summary>
     public ListPage()
-        : this(App.Current.Services.GetRequiredService<ISettingsService>())
     {
-    }
-#pragma warning restore CS0618
-
-    public ListPage(ISettingsService settingsService)
-    {
-        _settingsService = settingsService;
-
         this.InitializeComponent();
         this.NavigationCacheMode = NavigationCacheMode.Disabled;
         this.ItemView.Loaded += Items_Loaded;
         this.ItemView.PreviewKeyDown += Items_PreviewKeyDown;
         this.ItemView.PointerPressed += Items_PointerPressed;
+    }
+
+    public ListPage(ISettingsService settingsService)
+        : this()
+    {
+        _settingsService = settingsService;
+    }
+
+    /// <summary>
+    /// Injects required services after Frame-based construction.
+    /// Called from <see cref="Pages.ShellPage"/> after navigation creates the page.
+    /// </summary>
+    internal void InjectServices(ISettingsService settingsService)
+    {
+        _settingsService = settingsService;
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)

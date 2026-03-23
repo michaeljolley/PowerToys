@@ -8,6 +8,7 @@ using System.Text;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI;
 using ManagedCommon;
+using Microsoft.CmdPal.Common.Text;
 using Microsoft.CmdPal.UI.Dock;
 using Microsoft.CmdPal.UI.Events;
 using Microsoft.CmdPal.UI.Helpers;
@@ -15,10 +16,10 @@ using Microsoft.CmdPal.UI.Messages;
 using Microsoft.CmdPal.UI.Services;
 using Microsoft.CmdPal.UI.Settings;
 using Microsoft.CmdPal.UI.ViewModels;
+using Microsoft.CmdPal.UI.ViewModels.Dock;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
 using Microsoft.CmdPal.UI.ViewModels.Services;
 using Microsoft.CommandPalette.Extensions;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.PowerToys.Telemetry;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Input;
@@ -70,6 +71,11 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
     private readonly ShellViewModel _viewModel;
     private readonly ISettingsService _settingsService;
     private readonly TopLevelCommandManager _topLevelCommandManager;
+    private readonly IFuzzyMatcherProvider _fuzzyMatcherProvider;
+    private readonly Func<SettingsWindow> _settingsWindowFactory;
+    private readonly DockViewModel _dockViewModel;
+    private readonly IThemeService _themeService;
+    private readonly Controls.SearchBar _searchBar;
 
     private SettingsWindow? _settingsWindow;
     private DockWindow? _dockWindow;
@@ -83,27 +89,30 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
 
     public IHostWindow? HostWindow { get; set; }
 
-    // XAML compatibility shim — will be removed when parents use DI constructor
-#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
-    public ShellPage()
-        : this(
-            App.Current.Services.GetRequiredService<ShellViewModel>(),
-            App.Current.Services.GetRequiredService<ISettingsService>(),
-            App.Current.Services.GetRequiredService<TopLevelCommandManager>())
-    {
-    }
-#pragma warning restore CS0618
-
     public ShellPage(
         ShellViewModel viewModel,
         ISettingsService settingsService,
-        TopLevelCommandManager topLevelCommandManager)
+        TopLevelCommandManager topLevelCommandManager,
+        IFuzzyMatcherProvider fuzzyMatcherProvider,
+        Func<SettingsWindow> settingsWindowFactory,
+        DockViewModel dockViewModel,
+        IThemeService themeService)
     {
         _viewModel = viewModel;
         _settingsService = settingsService;
         _topLevelCommandManager = topLevelCommandManager;
+        _fuzzyMatcherProvider = fuzzyMatcherProvider;
+        _settingsWindowFactory = settingsWindowFactory;
+        _dockViewModel = dockViewModel;
+        _themeService = themeService;
 
         this.InitializeComponent();
+        CommandBarControl.InitializeDependencies(fuzzyMatcherProvider);
+
+        _searchBar = new Controls.SearchBar(_settingsService);
+        _searchBar.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _searchBar.CurrentPageViewModel = ViewModel?.CurrentPage;
+        SearchBox.Content = _searchBar;
 
         // how we are doing navigation around
         WeakReferenceMessenger.Default.Register<NavigateBackMessage>(this);
@@ -136,7 +145,7 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
 
         if (_settingsService.Settings.EnableDock)
         {
-            _dockWindow = new DockWindow();
+            _dockWindow = new DockWindow(_settingsService, _dockViewModel, _themeService, _fuzzyMatcherProvider);
             _dockWindow.Show();
         }
     }
@@ -299,7 +308,7 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
     {
         if (_settingsWindow is null)
         {
-            _settingsWindow = new SettingsWindow();
+            _settingsWindow = _settingsWindowFactory();
         }
 
         _settingsWindow.Activate();
@@ -377,7 +386,7 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
         ViewModel.IsDetailsVisible = false;
     }
 
-    public void Receive(ClearSearchMessage message) => SearchBox.ClearSearch();
+    public void Receive(ClearSearchMessage message) => _searchBar.ClearSearch();
 
     public void Receive(HotkeySummonMessage message) => _ = DispatcherQueue.TryEnqueue(() => SummonOnUiThread(message));
 
@@ -402,7 +411,7 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
             }
             else if (settings.HighlightSearchOnActivate)
             {
-                SearchBox.SelectSearch();
+                _searchBar.SelectSearch();
             }
         }
         else
@@ -483,8 +492,8 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
 
         if (focusSearch)
         {
-            SearchBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
-            SearchBox.SelectSearch();
+            _searchBar.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+            _searchBar.SelectSearch();
         }
     }
 
@@ -501,8 +510,8 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
         // focus search box, even if we were already home
         if (focusSearch)
         {
-            SearchBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
-            SearchBox.SelectSearch();
+            _searchBar.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+            _searchBar.SelectSearch();
         }
     }
 
@@ -514,7 +523,7 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
             {
                 if (_dockWindow is null)
                 {
-                    _dockWindow = new DockWindow();
+                    _dockWindow = new DockWindow(_settingsService, _dockViewModel, _themeService, _fuzzyMatcherProvider);
                 }
 
                 _dockWindow.Show();
@@ -573,10 +582,18 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
                     Logger.LogWarning($"Invalid navigation target: AsyncNavigationRequest.{nameof(AsyncNavigationRequest.TargetViewModel)} must be {nameof(PageViewModel)}");
                     break;
             }
+
+            _searchBar.CurrentPageViewModel = ViewModel.CurrentPage;
         }
         else
         {
             Logger.LogWarning("Unrecognized target for shell navigation: " + e.Parameter);
+        }
+
+        // Inject services into ListPage after Frame-based construction
+        if (e.Content is ListPage listPage)
+        {
+            listPage.InjectServices(_settingsService);
         }
 
         if (e.Content is Page element)
@@ -616,8 +633,8 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
                 return;
             }
 
-            SearchBox.Focus(FocusState.Programmatic);
-            SearchBox.SelectSearch();
+            _searchBar.Focus(FocusState.Programmatic);
+            _searchBar.SelectSearch();
         }
         else
         {

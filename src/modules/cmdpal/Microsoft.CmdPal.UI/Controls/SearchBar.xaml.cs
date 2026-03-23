@@ -11,7 +11,7 @@ using Microsoft.CmdPal.UI.ViewModels.Commands;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
 using Microsoft.CmdPal.UI.ViewModels.Services;
 using Microsoft.CmdPal.UI.Views;
-using Microsoft.Extensions.DependencyInjection;
+
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -85,14 +85,6 @@ public sealed partial class SearchBar : UserControl,
             page.PropertyChanged += @this.Page_PropertyChanged;
         }
     }
-
-    // XAML compatibility shim — will be removed when parents use DI constructor
-#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
-    public SearchBar()
-        : this(App.Current.Services.GetRequiredService<ISettingsService>())
-    {
-    }
-#pragma warning restore CS0618
 
     public SearchBar(ISettingsService settingsService)
     {

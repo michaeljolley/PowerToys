@@ -335,10 +335,10 @@
                 </StackPanel>
                 <!--  Search box: wrapped in a grid to enable RepositionThemeTransitions  -->
                 <Grid Grid.Column="1" HorizontalAlignment="Stretch">
-                    <cpcontrols:SearchBar
+                    <ContentControl
                         x:Name="SearchBox"
                         HorizontalAlignment="Stretch"
-                        CurrentPageViewModel="{x:Bind ViewModel.CurrentPage, Mode=OneWay}" />
+                        HorizontalContentAlignment="Stretch" />
                     <Grid.Transitions>
                         <TransitionCollection>
                             <RepositionThemeTransition />
@@ -525,7 +525,7 @@
             Background="{ThemeResource LayerOnAcrylicSecondaryBackgroundBrush}"
             BorderBrush="{ThemeResource CmdPal.DividerStrokeColorDefaultBrush}"
             BorderThickness="0,1,0,0">
-            <cpcontrols:CommandBar CurrentPageViewModel="{x:Bind ViewModel.CurrentPage, Mode=OneWay}" />
+            <cpcontrols:CommandBar x:Name="CommandBarControl" CurrentPageViewModel="{x:Bind ViewModel.CurrentPage, Mode=OneWay}" />
         </Grid>
 
         <VisualStateManager.VisualStateGroups>

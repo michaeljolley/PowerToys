@@ -5,13 +5,14 @@
 using System.Runtime.InteropServices;
 using CommunityToolkit.Mvvm.Messaging;
 using ManagedCommon;
+using Microsoft.CmdPal.Common.Text;
 using Microsoft.CmdPal.UI.Helpers;
 using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Dock;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
 using Microsoft.CmdPal.UI.ViewModels.Services;
 using Microsoft.CmdPal.UI.ViewModels.Settings;
-using Microsoft.Extensions.DependencyInjection;
+
 using Microsoft.UI.Composition;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Dispatching;
@@ -66,20 +67,11 @@ public sealed partial class DockWindow : WindowEx,
     private WNDPROC? _customWndProc;
 
     // internal Settings CurrentSettings => _settings;
-#pragma warning disable CS0618 // Obsolete — XAML compatibility shim
-    public DockWindow()
-        : this(
-            App.Current.Services.GetRequiredService<ISettingsService>(),
-            App.Current.Services.GetService<DockViewModel>()!,
-            App.Current.Services.GetRequiredService<IThemeService>())
-    {
-    }
-#pragma warning restore CS0618
-
     public DockWindow(
         ISettingsService settingsService,
         DockViewModel dockViewModel,
-        IThemeService themeService)
+        IThemeService themeService,
+        IFuzzyMatcherProvider fuzzyMatcherProvider)
     {
         _settingsService = settingsService;
         _settingsService.SettingsChanged += SettingsChangedHandler;
@@ -91,7 +83,7 @@ public sealed partial class DockWindow : WindowEx,
         _themeService = themeService;
         _themeService.ThemeChanged += ThemeService_ThemeChanged;
         _windowViewModel = new DockWindowViewModel(_themeService);
-        _dock = new DockControl(viewModel);
+        _dock = new DockControl(viewModel, fuzzyMatcherProvider);
 
         InitializeComponent();
         Root.Children.Add(_dock);
