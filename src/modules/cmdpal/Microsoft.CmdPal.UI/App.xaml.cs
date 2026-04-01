@@ -60,7 +60,7 @@ public partial class App : Application, IDisposable
     /// <summary>
     /// Gets the <see cref="IServiceProvider"/> instance to resolve application services.
     /// </summary>
-    public IServiceProvider Services { get; }
+    private IServiceProvider Services { get; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="App"/> class.
@@ -107,7 +107,7 @@ public partial class App : Application, IDisposable
     /// <param name="args">Details about the launch request and process.</param>
     protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
-        AppWindow = new MainWindow();
+        AppWindow = Services.GetRequiredService<MainWindow>();
 
         var activatedEventArgs = Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs();
         ((MainWindow)AppWindow).HandleLaunchNonUI(activatedEventArgs);
@@ -221,15 +221,32 @@ public partial class App : Application, IDisposable
 
         // Services
         services.AddSingleton<ICommandProviderCache, DefaultCommandProviderCache>();
+        services.AddSingleton(sp => new Lazy<IEnumerable<ICommandProvider>>(() => sp.GetServices<ICommandProvider>()));
         services.AddSingleton<TopLevelCommandManager>();
         services.AddSingleton<AliasManager>();
+        services.AddSingleton(sp => new Lazy<AliasManager>(() => sp.GetRequiredService<AliasManager>()));
         services.AddSingleton<HotkeyManager>();
+        services.AddSingleton(sp => new Lazy<HotkeyManager>(() => sp.GetRequiredService<HotkeyManager>()));
 
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<TrayIconService>();
 
+        services.AddSingleton<IPageFactory, PageFactory>();
         services.AddSingleton<IThemeService, ThemeService>();
         services.AddSingleton<ResourceSwapper>();
+
+        // Settings pages are created by Frame.Navigate (parameterless constructors)
+        services.AddTransient<Settings.SettingsWindow>();
+
+        // Windows & pages (transient — created on demand via factory delegates)
+        services.AddTransient<Dock.DockWindow>();
+        services.AddTransient<Pages.ShellPage>();
+        services.AddSingleton<MainWindow>();
+
+        // Factory delegates for on-demand window/page creation
+        services.AddSingleton<Func<Dock.DockWindow>>(sp => () => sp.GetRequiredService<Dock.DockWindow>());
+        services.AddSingleton<Func<Settings.SettingsWindow>>(sp => () => sp.GetRequiredService<Settings.SettingsWindow>());
+        services.AddSingleton<Func<Pages.ShellPage>>(sp => () => sp.GetRequiredService<Pages.ShellPage>());
 
         services.AddIconServices(dispatcherQueue);
     }
@@ -253,6 +270,7 @@ public partial class App : Application, IDisposable
         services.AddSingleton<ShellViewModel>();
         services.AddSingleton<DockViewModel>();
         services.AddSingleton<IContextMenuFactory, CommandPaletteContextMenuFactory>();
+        services.AddSingleton(sp => new Lazy<IContextMenuFactory>(() => sp.GetRequiredService<IContextMenuFactory>()));
         services.AddSingleton<IPageViewModelFactoryService, CommandPalettePageViewModelFactory>();
     }
 

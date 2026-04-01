@@ -4,7 +4,6 @@
 
 using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 
 namespace Microsoft.CmdPal.UI.Controls;
@@ -12,16 +11,20 @@ namespace Microsoft.CmdPal.UI.Controls;
 public sealed partial class FallbackRanker : UserControl
 {
     private readonly TaskScheduler _mainTaskScheduler = TaskScheduler.FromCurrentSynchronizationContext();
+    private readonly TopLevelCommandManager _topLevelCommandManager;
+    private readonly IThemeService _themeService;
+    private readonly ISettingsService _settingsService;
     private SettingsViewModel? viewModel;
 
-    public FallbackRanker()
+    public FallbackRanker(TopLevelCommandManager topLevelCommandManager, IThemeService themeService, ISettingsService settingsService)
     {
+        _topLevelCommandManager = topLevelCommandManager;
+        _themeService = themeService;
+        _settingsService = settingsService;
+
         this.InitializeComponent();
 
-        var topLevelCommandManager = App.Current.Services.GetService<TopLevelCommandManager>()!;
-        var themeService = App.Current.Services.GetService<IThemeService>()!;
-        var settingsService = App.Current.Services.GetRequiredService<ISettingsService>();
-        viewModel = new SettingsViewModel(topLevelCommandManager, _mainTaskScheduler, themeService, settingsService);
+        viewModel = new SettingsViewModel(_topLevelCommandManager, _mainTaskScheduler, _themeService, _settingsService);
     }
 
     private void ListView_DragItemsCompleted(ListViewBase sender, DragItemsCompletedEventArgs args)

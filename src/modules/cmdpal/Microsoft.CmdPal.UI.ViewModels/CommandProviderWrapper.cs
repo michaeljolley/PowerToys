@@ -9,7 +9,6 @@ using Microsoft.CmdPal.UI.ViewModels.Services;
 using Microsoft.CmdPal.UI.ViewModels.Settings;
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
-using Microsoft.Extensions.DependencyInjection;
 using Windows.Foundation;
 
 namespace Microsoft.CmdPal.UI.ViewModels;
@@ -25,6 +24,14 @@ public sealed class CommandProviderWrapper : ICommandProviderContext
     private readonly TaskScheduler _taskScheduler;
 
     private readonly ICommandProviderCache? _commandProviderCache;
+
+    private readonly ISettingsService _settingsService;
+
+    private readonly IContextMenuFactory _contextMenuFactory;
+
+    private readonly HotkeyManager _hotkeyManager;
+
+    private readonly AliasManager _aliasManager;
 
     public TopLevelViewModel[] TopLevelItems { get; private set; } = [];
 
@@ -54,12 +61,16 @@ public sealed class CommandProviderWrapper : ICommandProviderContext
 
     public TopLevelItemPageContext TopLevelPageContext { get; }
 
-    public CommandProviderWrapper(ICommandProvider provider, TaskScheduler mainThread)
+    public CommandProviderWrapper(ICommandProvider provider, TaskScheduler mainThread, ISettingsService settingsService, IContextMenuFactory contextMenuFactory, HotkeyManager hotkeyManager, AliasManager aliasManager)
     {
         // This ctor is only used for in-proc builtin commands. So the Unsafe!
         // calls are pretty dang safe actually.
         _commandProvider = new(provider);
         _taskScheduler = mainThread;
+        _settingsService = settingsService;
+        _contextMenuFactory = contextMenuFactory;
+        _hotkeyManager = hotkeyManager;
+        _aliasManager = aliasManager;
         TopLevelPageContext = new(this, _taskScheduler);
 
         // Hook the extension back into us
@@ -81,10 +92,14 @@ public sealed class CommandProviderWrapper : ICommandProviderContext
         Logger.LogDebug($"Initialized command provider {ProviderId}");
     }
 
-    public CommandProviderWrapper(IExtensionWrapper extension, TaskScheduler mainThread, ICommandProviderCache commandProviderCache)
+    public CommandProviderWrapper(IExtensionWrapper extension, TaskScheduler mainThread, ICommandProviderCache commandProviderCache, ISettingsService settingsService, IContextMenuFactory contextMenuFactory, HotkeyManager hotkeyManager, AliasManager aliasManager)
     {
         _taskScheduler = mainThread;
         _commandProviderCache = commandProviderCache;
+        _settingsService = settingsService;
+        _contextMenuFactory = contextMenuFactory;
+        _hotkeyManager = hotkeyManager;
+        _aliasManager = aliasManager;
         TopLevelPageContext = new(this, _taskScheduler);
 
         Extension = extension;
@@ -135,7 +150,7 @@ public sealed class CommandProviderWrapper : ICommandProviderContext
         return ps.WithConnection(this);
     }
 
-    public async Task LoadTopLevelCommands(IServiceProvider serviceProvider)
+    public async Task LoadTopLevelCommands()
     {
         if (!isValid)
         {
@@ -144,11 +159,10 @@ public sealed class CommandProviderWrapper : ICommandProviderContext
             return;
         }
 
-        var settingsService = serviceProvider.GetRequiredService<ISettingsService>();
-        var providerSettings = GetProviderSettings(settingsService.Settings);
+        var providerSettings = GetProviderSettings(_settingsService.Settings);
 
         // Persist the connected provider settings (fallback commands, etc.)
-        settingsService.UpdateSettings(
+        _settingsService.UpdateSettings(
             s =>
             {
                 if (!s.ProviderSettings.TryGetValue(ProviderId, out var ps))
@@ -232,7 +246,7 @@ public sealed class CommandProviderWrapper : ICommandProviderContext
 
             // We do need to explicitly initialize commands though
             var objects = new TopLevelObjects(commands, fallbacks, pinnedCommands, dockBands);
-            InitializeCommands(objects, serviceProvider, four);
+            InitializeCommands(objects, four);
 
             Logger.LogDebug($"Loaded commands from {DisplayName} ({ProviderId})");
         }
@@ -269,18 +283,16 @@ public sealed class CommandProviderWrapper : ICommandProviderContext
 
     private void InitializeCommands(
         TopLevelObjects objects,
-        IServiceProvider serviceProvider,
         ICommandProvider4? four)
     {
-        var settings = serviceProvider.GetRequiredService<ISettingsService>().Settings;
-        var contextMenuFactory = serviceProvider.GetService<IContextMenuFactory>()!;
+        var settings = _settingsService.Settings;
         var providerSettings = GetProviderSettings(settings);
         var ourContext = GetProviderContext();
         WeakReference<IPageContext> pageContext = new(this.TopLevelPageContext);
         var make = (ICommandItem? i, TopLevelType t) =>
         {
-            CommandItemViewModel commandItemViewModel = new(new(i), pageContext, contextMenuFactory: contextMenuFactory);
-            TopLevelViewModel topLevelViewModel = new(commandItemViewModel, t, ExtensionHost, ourContext, providerSettings, serviceProvider, i, contextMenuFactory: contextMenuFactory);
+            CommandItemViewModel commandItemViewModel = new(new(i), pageContext, contextMenuFactory: _contextMenuFactory);
+            TopLevelViewModel topLevelViewModel = new(commandItemViewModel, t, ExtensionHost, ourContext, providerSettings, _settingsService, _hotkeyManager, _aliasManager, i, contextMenuFactory: _contextMenuFactory);
             topLevelViewModel.InitializeProperties();
 
             return topLevelViewModel;
@@ -438,14 +450,13 @@ public sealed class CommandProviderWrapper : ICommandProviderContext
         }
     }
 
-    public void PinCommand(string commandId, IServiceProvider serviceProvider)
+    public void PinCommand(string commandId)
     {
-        var settingsService = serviceProvider.GetRequiredService<ISettingsService>();
-        var providerSettings = GetProviderSettings(settingsService.Settings);
+        var providerSettings = GetProviderSettings(_settingsService.Settings);
 
         if (!providerSettings.PinnedCommandIds.Contains(commandId))
         {
-            settingsService.UpdateSettings(
+            _settingsService.UpdateSettings(
                 s =>
                 {
                     if (!s.ProviderSettings.TryGetValue(ProviderId, out var ps))
@@ -469,11 +480,9 @@ public sealed class CommandProviderWrapper : ICommandProviderContext
         }
     }
 
-    public void UnpinCommand(string commandId, IServiceProvider serviceProvider)
+    public void UnpinCommand(string commandId)
     {
-        var settingsService = serviceProvider.GetRequiredService<ISettingsService>();
-
-        settingsService.UpdateSettings(
+        _settingsService.UpdateSettings(
             s =>
             {
                 if (!s.ProviderSettings.TryGetValue(ProviderId, out var ps))
@@ -496,10 +505,9 @@ public sealed class CommandProviderWrapper : ICommandProviderContext
         this.CommandsChanged?.Invoke(this, new ItemsChangedEventArgs(-1));
     }
 
-    public void PinDockBand(string commandId, IServiceProvider serviceProvider, Dock.DockPinSide side = Dock.DockPinSide.Start, bool? showTitles = null, bool? showSubtitles = null)
+    public void PinDockBand(string commandId, Dock.DockPinSide side = Dock.DockPinSide.Start, bool? showTitles = null, bool? showSubtitles = null)
     {
-        var settingsService = serviceProvider.GetRequiredService<ISettingsService>();
-        var settings = settingsService.Settings;
+        var settings = _settingsService.Settings;
         var dockSettings = settings.DockSettings;
 
         // Prevent duplicate pins — check all sections
@@ -519,7 +527,7 @@ public sealed class CommandProviderWrapper : ICommandProviderContext
             ShowSubtitles = showSubtitles,
         };
 
-        settingsService.UpdateSettings(
+        _settingsService.UpdateSettings(
             s =>
             {
                 var dockSettings = s.DockSettings;
@@ -539,10 +547,9 @@ public sealed class CommandProviderWrapper : ICommandProviderContext
         this.CommandsChanged?.Invoke(this, new ItemsChangedEventArgs(-1));
     }
 
-    public void UnpinDockBand(string commandId, IServiceProvider serviceProvider)
+    public void UnpinDockBand(string commandId)
     {
-        var settingsService = serviceProvider.GetRequiredService<ISettingsService>();
-        settingsService.UpdateSettings(
+        _settingsService.UpdateSettings(
             s =>
             {
                 var dockSettings = s.DockSettings;

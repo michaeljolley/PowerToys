@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
+using Microsoft.CmdPal.UI.ViewModels;
+using Microsoft.CmdPal.UI.ViewModels.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -21,9 +23,14 @@ namespace Microsoft.CmdPal.UI.Controls;
 
 public sealed partial class FallbackRankerDialog : UserControl
 {
-    public FallbackRankerDialog()
+    private FallbackRanker FallbackRanker;
+
+    public FallbackRankerDialog(TopLevelCommandManager topLevelCommandManager, IThemeService themeService, ISettingsService settingsService)
     {
         InitializeComponent();
+
+        FallbackRanker = new FallbackRanker(topLevelCommandManager, themeService, settingsService);
+        FallbackRankerHost.Content = FallbackRanker;
     }
 
     public IAsyncOperation<ContentDialogResult> ShowAsync()

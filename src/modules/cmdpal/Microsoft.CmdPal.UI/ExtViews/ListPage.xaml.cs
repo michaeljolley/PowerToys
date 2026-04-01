@@ -10,7 +10,7 @@ using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Commands;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
 using Microsoft.CmdPal.UI.ViewModels.Services;
-using Microsoft.Extensions.DependencyInjection;
+
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
@@ -63,8 +63,11 @@ public sealed partial class ListPage : Page,
 
     private ListViewBase ItemView => ViewModel?.IsGridView == true ? ItemsGrid : ItemsList;
 
-    public ListPage()
+    private readonly ISettingsService _settingsService;
+
+    public ListPage(ISettingsService settingsService)
     {
+        _settingsService = settingsService;
         this.InitializeComponent();
         this.NavigationCacheMode = NavigationCacheMode.Disabled;
         this.ItemView.Loaded += Items_Loaded;
@@ -170,8 +173,7 @@ public sealed partial class ListPage : Page,
                 return;
             }
 
-            var settings = App.Current.Services.GetRequiredService<ISettingsService>().Settings;
-            if (settings.SingleClickActivates)
+            if (_settingsService.Settings.SingleClickActivates)
             {
                 ViewModel?.InvokeItemCommand.Execute(item);
             }
@@ -190,8 +192,7 @@ public sealed partial class ListPage : Page,
     {
         if (ItemView.SelectedItem is ListItemViewModel vm)
         {
-            var settings = App.Current.Services.GetRequiredService<ISettingsService>().Settings;
-            if (!settings.SingleClickActivates)
+            if (!_settingsService.Settings.SingleClickActivates)
             {
                 ViewModel?.InvokeItemCommand.Execute(vm);
             }

@@ -5,10 +5,13 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.Messaging;
 using ManagedCommon;
+using Microsoft.CmdPal.Common.Services;
 using Microsoft.CmdPal.UI.Helpers;
 using Microsoft.CmdPal.UI.Messages;
 using Microsoft.CmdPal.UI.ViewModels;
+using Microsoft.CmdPal.UI.ViewModels.Dock;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
+using Microsoft.CmdPal.UI.ViewModels.Services;
 using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -28,6 +31,7 @@ public sealed partial class SettingsWindow : WindowEx,
     IRecipient<QuitMessage>
 {
     private readonly LocalKeyboardListener _localKeyboardListener;
+    private readonly SettingsPageContext _pageContext;
 
     private readonly NavigationViewItem? _internalNavItem;
 
@@ -36,9 +40,15 @@ public sealed partial class SettingsWindow : WindowEx,
     // Gets or sets optional action invoked after NavigationView is loaded.
     public Action? NavigationViewLoaded { get; set; }
 
-    public SettingsWindow()
+    public SettingsWindow(
+        TopLevelCommandManager topLevelCommandManager,
+        IThemeService themeService,
+        ISettingsService settingsService,
+        IApplicationInfoService applicationInfoService,
+        DockViewModel dockViewModel)
     {
         this.InitializeComponent();
+        _pageContext = new SettingsPageContext(topLevelCommandManager, themeService, settingsService, applicationInfoService, dockViewModel);
         this.ExtendsContentIntoTitleBar = true;
         this.SetIcon();
         var title = RS_.GetString("SettingsWindowTitle");
@@ -112,38 +122,25 @@ public sealed partial class SettingsWindow : WindowEx,
 
     internal void Navigate(string page)
     {
-        Type? pageType;
-        switch (page)
+        Type? pageType = page switch
         {
-            case "General":
-                pageType = typeof(GeneralPage);
-                break;
-            case "Appearance":
-                pageType = typeof(AppearancePage);
-                break;
-            case "Extensions":
-                pageType = typeof(ExtensionsPage);
-                break;
-            case "Dock":
-                pageType = typeof(DockSettingsPage);
-                break;
-            case "Internal":
-                pageType = typeof(InternalPage);
-                break;
-            case "":
-                // intentional no-op: empty tag means no navigation
-                pageType = null;
-                break;
-            default:
-                // unknown page, no-op and log
-                pageType = null;
-                Logger.LogError($"Unknown settings page tag '{page}'");
-                break;
+            "General" => typeof(GeneralPage),
+            "Appearance" => typeof(AppearancePage),
+            "Extensions" => typeof(ExtensionsPage),
+            "Dock" => typeof(DockSettingsPage),
+            "Internal" => typeof(InternalPage),
+            "" => null,
+            _ => null,
+        };
+
+        if (page is not "" && pageType is null)
+        {
+            Logger.LogError($"Unknown settings page tag '{page}'");
         }
 
         if (pageType is not null)
         {
-            NavFrame.Navigate(pageType);
+            NavFrame.Navigate(pageType, _pageContext);
 
             // Now, make sure to actually select the correct menu item too
             foreach (var obj in NavView.MenuItems)
@@ -161,7 +158,7 @@ public sealed partial class SettingsWindow : WindowEx,
 
     private void Navigate(ProviderSettingsViewModel extension)
     {
-        NavFrame.Navigate(typeof(ExtensionPage), extension);
+        NavFrame.Navigate(typeof(ExtensionPage), new ExtensionPageNavParam(extension, _pageContext));
     }
 
     private void PositionCentered()
@@ -285,6 +282,8 @@ public sealed partial class SettingsWindow : WindowEx,
 
     private void NavFrame_OnNavigated(object sender, NavigationEventArgs e)
     {
+        AppTitleBar.IsBackButtonVisible = e.SourcePageType == typeof(ExtensionPage);
+
         BreadCrumbs.Clear();
 
         if (e.SourcePageType == typeof(GeneralPage))
@@ -311,12 +310,12 @@ public sealed partial class SettingsWindow : WindowEx,
             var pageType = RS_.GetString("Settings_PageTitles_DockPage");
             BreadCrumbs.Add(new(pageType, pageType));
         }
-        else if (e.SourcePageType == typeof(ExtensionPage) && e.Parameter is ProviderSettingsViewModel vm)
+        else if (e.SourcePageType == typeof(ExtensionPage) && e.Parameter is ExtensionPageNavParam navParam)
         {
             NavView.SelectedItem = ExtensionPageNavItem;
             var extensionsPageType = RS_.GetString("Settings_PageTitles_ExtensionsPage");
             BreadCrumbs.Add(new(extensionsPageType, extensionsPageType));
-            BreadCrumbs.Add(new(vm.DisplayName, vm));
+            BreadCrumbs.Add(new(navParam.Extension.DisplayName, navParam.Extension));
         }
         else if (e.SourcePageType == typeof(InternalPage) && _internalNavItem is not null)
         {

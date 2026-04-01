@@ -8,11 +8,11 @@ using ManagedCommon;
 using Microsoft.CmdPal.UI.Messages;
 using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
+using Microsoft.UI.Xaml.Navigation;
 using Microsoft.Windows.Storage.Pickers;
 using Windows.Win32.Foundation;
 
@@ -25,16 +25,21 @@ public sealed partial class AppearancePage : Page
 {
     private readonly TaskScheduler _mainTaskScheduler = TaskScheduler.FromCurrentSynchronizationContext();
 
-    internal SettingsViewModel ViewModel { get; }
+    internal SettingsViewModel? ViewModel { get; private set; }
 
     public AppearancePage()
     {
         InitializeComponent();
+    }
 
-        var themeService = App.Current.Services.GetRequiredService<IThemeService>();
-        var topLevelCommandManager = App.Current.Services.GetService<TopLevelCommandManager>()!;
-        var settingsService = App.Current.Services.GetRequiredService<ISettingsService>();
-        ViewModel = new SettingsViewModel(topLevelCommandManager, _mainTaskScheduler, themeService, settingsService);
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+        if (e.Parameter is SettingsPageContext ctx)
+        {
+            ViewModel = new SettingsViewModel(ctx.TopLevelCommandManager, _mainTaskScheduler, ctx.ThemeService, ctx.SettingsService);
+            Bindings.Update();
+        }
     }
 
     private async void PickBackgroundImage_Click(object sender, RoutedEventArgs e)
@@ -64,7 +69,7 @@ public sealed partial class AppearancePage : Page
             var file = await picker.PickSingleFileAsync()!;
             if (file != null)
             {
-                ViewModel.Appearance.BackgroundImagePath = file.Path ?? string.Empty;
+                ViewModel!.Appearance.BackgroundImagePath = file.Path ?? string.Empty;
             }
         }
         catch (Exception ex)

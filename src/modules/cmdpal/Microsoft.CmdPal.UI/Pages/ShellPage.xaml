@@ -339,10 +339,10 @@
                 </StackPanel>
                 <!--  Search box: wrapped in a grid to enable RepositionThemeTransitions  -->
                 <Grid Grid.Column="1" HorizontalAlignment="Stretch">
-                    <cpcontrols:SearchBar
-                        x:Name="SearchBox"
+                    <ContentControl
+                        x:Name="SearchBarHost"
                         HorizontalAlignment="Stretch"
-                        CurrentPageViewModel="{x:Bind ViewModel.CurrentPage, Mode=OneWay}" />
+                        HorizontalContentAlignment="Stretch" />
                     <Grid.Transitions>
                         <TransitionCollection>
                             <RepositionThemeTransition />
@@ -538,7 +538,7 @@
             Background="{ThemeResource LayerOnAcrylicSecondaryBackgroundBrush}"
             BorderBrush="{ThemeResource CmdPal.DividerStrokeColorDefaultBrush}"
             BorderThickness="0,1,0,0">
-            <cpcontrols:CommandBar CurrentPageViewModel="{x:Bind ViewModel.CurrentPage, Mode=OneWay}" />
+            <ContentControl x:Name="CommandBarHost" />
         </Grid>
 
         <VisualStateManager.VisualStateGroups>
@@ -568,8 +568,8 @@
                         <StateTrigger IsActive="{x:Bind h:BindTransformers.Negate(ViewModel.IsSearchBoxVisible), Mode=OneWay}" />
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
-                        <Setter Target="SearchBox.IsEnabled" Value="False" />
-                        <Setter Target="SearchBox.Opacity" Value="0" />
+                        <Setter Target="SearchBarHost.IsEnabled" Value="False" />
+                        <Setter Target="SearchBarHost.Opacity" Value="0" />
                         <Setter Target="TopBarGrid.BorderBrush" Value="Transparent" />
                     </VisualState.Setters>
                 </VisualState>

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.CmdPal.Common.Text;
 using Microsoft.CmdPal.UI.Messages;
 using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
@@ -20,6 +21,8 @@ public sealed partial class CommandBar : UserControl,
     IRecipient<TryCommandKeybindingMessage>,
     ICurrentPageAware
 {
+    private ContextMenu ContextControl;
+
     public CommandBarViewModel ViewModel { get; } = new();
 
     public PageViewModel? CurrentPageViewModel
@@ -32,9 +35,12 @@ public sealed partial class CommandBar : UserControl,
     public static readonly DependencyProperty CurrentPageViewModelProperty =
         DependencyProperty.Register(nameof(CurrentPageViewModel), typeof(PageViewModel), typeof(CommandBar), new PropertyMetadata(null));
 
-    public CommandBar()
+    public CommandBar(IFuzzyMatcherProvider fuzzyMatcherProvider)
     {
         this.InitializeComponent();
+
+        ContextControl = new ContextMenu(fuzzyMatcherProvider);
+        ContextControlHost.Content = ContextControl;
 
         // RegisterAll isn't AOT compatible
         WeakReferenceMessenger.Default.Register<OpenContextMenuMessage>(this);

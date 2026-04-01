@@ -28,7 +28,7 @@
         <TitleBar
             x:Name="AppTitleBar"
             BackRequested="TitleBar_BackRequested"
-            IsBackButtonVisible="{x:Bind NavFrame.CanGoBack, Mode=OneWay}"
+            IsBackButtonVisible="False"
             IsTabStop="False"
             PaneToggleRequested="AppTitleBar_PaneToggleRequested">
             <TitleBar.Resources>

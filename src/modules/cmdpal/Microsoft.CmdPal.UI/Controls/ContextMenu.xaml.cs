@@ -9,7 +9,6 @@ using Microsoft.CmdPal.UI.Helpers;
 using Microsoft.CmdPal.UI.Messages;
 using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -46,11 +45,11 @@ public sealed partial class ContextMenu : UserControl,
 
     public ContextMenuViewModel ViewModel { get; }
 
-    public ContextMenu()
+    public ContextMenu(IFuzzyMatcherProvider fuzzyMatcherProvider)
     {
         this.InitializeComponent();
 
-        ViewModel = new ContextMenuViewModel(App.Current.Services.GetRequiredService<IFuzzyMatcherProvider>());
+        ViewModel = new ContextMenuViewModel(fuzzyMatcherProvider);
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
 
         if (SubscribeToCommandBar)

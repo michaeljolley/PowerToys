@@ -5,12 +5,13 @@
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI.Controls;
 using ManagedCommon;
+using Microsoft.CmdPal.UI.Controls;
 using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Navigation;
 
 namespace Microsoft.CmdPal.UI.Settings;
 
@@ -18,17 +19,25 @@ public sealed partial class ExtensionsPage : Page
 {
     private readonly TaskScheduler _mainTaskScheduler = TaskScheduler.FromCurrentSynchronizationContext();
 
-    private readonly SettingsViewModel? viewModel;
+    private SettingsViewModel? viewModel;
+    private FallbackRankerDialog? _fallbackRankerDialog;
     private int _lastFocusedIndex;
 
     public ExtensionsPage()
     {
         this.InitializeComponent();
+    }
 
-        var topLevelCommandManager = App.Current.Services.GetService<TopLevelCommandManager>()!;
-        var themeService = App.Current.Services.GetService<IThemeService>()!;
-        var settingsService = App.Current.Services.GetRequiredService<ISettingsService>();
-        viewModel = new SettingsViewModel(topLevelCommandManager, _mainTaskScheduler, themeService, settingsService);
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+        if (e.Parameter is SettingsPageContext ctx)
+        {
+            viewModel = new SettingsViewModel(ctx.TopLevelCommandManager, _mainTaskScheduler, ctx.ThemeService, ctx.SettingsService);
+            _fallbackRankerDialog = new FallbackRankerDialog(ctx.TopLevelCommandManager, ctx.ThemeService, ctx.SettingsService);
+            FallbackRankerDialogHost.Content = _fallbackRankerDialog;
+            Bindings.Update();
+        }
     }
 
     private void SettingsCard_Click(object sender, RoutedEventArgs e)
@@ -52,7 +61,10 @@ public sealed partial class ExtensionsPage : Page
     {
         try
         {
-            await FallbackRankerDialog!.ShowAsync();
+            if (_fallbackRankerDialog is not null)
+            {
+                await _fallbackRankerDialog.ShowAsync();
+            }
         }
         catch (Exception ex)
         {

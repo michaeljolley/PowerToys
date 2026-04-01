@@ -7,6 +7,8 @@ using System.Collections.Specialized;
 using System.Runtime.InteropServices;
 using CommunityToolkit.Mvvm.Messaging;
 using ManagedCommon;
+using Microsoft.CmdPal.Common.Text;
+using Microsoft.CmdPal.UI.Controls;
 using Microsoft.CmdPal.UI.Messages;
 using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Dock;
@@ -25,6 +27,8 @@ namespace Microsoft.CmdPal.UI.Dock;
 
 public sealed partial class DockControl : UserControl, IRecipient<CloseContextMenuMessage>, IRecipient<EnterDockEditModeMessage>
 {
+    private ContextMenu ContextControl;
+
     private DockViewModel _viewModel;
 
     internal DockViewModel ViewModel => _viewModel;
@@ -64,10 +68,15 @@ public sealed partial class DockControl : UserControl, IRecipient<CloseContextMe
         }
     }
 
-    internal DockControl(DockViewModel viewModel)
+    internal DockControl(DockViewModel viewModel, IFuzzyMatcherProvider fuzzyMatcherProvider)
     {
         _viewModel = viewModel;
         InitializeComponent();
+
+        ContextControl = new ContextMenu(fuzzyMatcherProvider);
+        ContextControl.SubscribeToCommandBar = false;
+        ContextControlHost.Content = ContextControl;
+
         Loaded += DockControl_Loaded;
         Unloaded += DockControl_Unloaded;
 

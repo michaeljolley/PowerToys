@@ -11,7 +11,6 @@ using Microsoft.CmdPal.UI.ViewModels.Commands;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
 using Microsoft.CmdPal.UI.ViewModels.Services;
 using Microsoft.CmdPal.UI.Views;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -27,6 +26,7 @@ public sealed partial class SearchBar : UserControl,
     ICurrentPageAware
 {
     private readonly DispatcherQueue _queue = DispatcherQueue.GetForCurrentThread();
+    private readonly ISettingsService _settingsService;
 
     /// <summary>
     /// Gets the <see cref="DispatcherQueueTimer"/> that we create to track keyboard input and throttle/debounce before we make queries.
@@ -50,7 +50,7 @@ public sealed partial class SearchBar : UserControl,
     // 0.6+ suggestions
     private string? _textToSuggest;
 
-    private SettingsModel Settings => App.Current.Services.GetRequiredService<ISettingsService>().Settings;
+    private SettingsModel Settings => _settingsService.Settings;
 
     public PageViewModel? CurrentPageViewModel
     {
@@ -85,8 +85,9 @@ public sealed partial class SearchBar : UserControl,
         }
     }
 
-    public SearchBar()
+    public SearchBar(ISettingsService settingsService)
     {
+        _settingsService = settingsService;
         this.InitializeComponent();
         WeakReferenceMessenger.Default.Register<GoHomeMessage>(this);
         WeakReferenceMessenger.Default.Register<FocusSearchBoxMessage>(this);

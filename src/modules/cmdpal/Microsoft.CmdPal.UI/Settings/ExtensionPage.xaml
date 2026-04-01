@@ -250,6 +250,6 @@
                 </StackPanel>
             </Grid>
         </ScrollViewer>
-        <cpcontrols:FallbackRankerDialog x:Name="FallbackRankerDialog" />
+        <ContentControl x:Name="FallbackRankerDialogHost" />
     </Grid>
 </Page>

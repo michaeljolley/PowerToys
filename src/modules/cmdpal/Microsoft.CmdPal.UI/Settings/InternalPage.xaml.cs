@@ -7,8 +7,8 @@ using ManagedCommon;
 using Microsoft.CmdPal.Common.Services;
 using Microsoft.CmdPal.UI.Messages;
 using Microsoft.CommandPalette.Extensions.Toolkit;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Navigation;
 using Windows.System;
 using Page = Microsoft.UI.Xaml.Controls.Page;
 
@@ -19,13 +19,20 @@ namespace Microsoft.CmdPal.UI.Settings;
 /// </summary>
 public sealed partial class InternalPage : Page
 {
-    private readonly IApplicationInfoService _appInfoService;
+    private IApplicationInfoService? _appInfoService;
 
     public InternalPage()
     {
         InitializeComponent();
+    }
 
-        _appInfoService = App.Current.Services.GetRequiredService<IApplicationInfoService>();
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+        if (e.Parameter is SettingsPageContext ctx)
+        {
+            _appInfoService = ctx.ApplicationInfoService;
+        }
     }
 
     private void ThrowPlainMainThreadException_Click(object sender, RoutedEventArgs e)
@@ -54,7 +61,7 @@ public sealed partial class InternalPage : Page
     {
         try
         {
-            var logFolderPath = _appInfoService.LogDirectory;
+            var logFolderPath = _appInfoService?.LogDirectory;
             if (Directory.Exists(logFolderPath))
             {
                 await Launcher.LaunchFolderPathAsync(logFolderPath);
@@ -86,7 +93,7 @@ public sealed partial class InternalPage : Page
     {
         try
         {
-            var directory = _appInfoService.ConfigDirectory;
+            var directory = _appInfoService?.ConfigDirectory;
             if (Directory.Exists(directory))
             {
                 await Launcher.LaunchFolderPathAsync(directory);

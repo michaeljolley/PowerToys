@@ -13,7 +13,6 @@ using Microsoft.CmdPal.UI.ViewModels.Services;
 using Microsoft.CmdPal.UI.ViewModels.Settings;
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
-using Microsoft.Extensions.DependencyInjection;
 using Windows.Foundation;
 using WyHash;
 
@@ -24,7 +23,8 @@ public sealed partial class TopLevelViewModel : ObservableObject, IListItem, IEx
 {
     private readonly ISettingsService _settingsService;
     private readonly ProviderSettings _providerSettings;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly HotkeyManager _hotkeyManager;
+    private readonly AliasManager _aliasManager;
     private readonly CommandItemViewModel _commandItemViewModel;
     private readonly IContextMenuFactory _contextMenuFactory;
 
@@ -97,7 +97,7 @@ public sealed partial class TopLevelViewModel : ObservableObject, IListItem, IEx
         get => _hotkey;
         set
         {
-            _serviceProvider.GetService<HotkeyManager>()!.UpdateHotkey(Id, value);
+            _hotkeyManager.UpdateHotkey(Id, value);
             UpdateHotkey();
             UpdateTags();
             Save();
@@ -210,12 +210,15 @@ public sealed partial class TopLevelViewModel : ObservableObject, IListItem, IEx
         CommandPaletteHost extensionHost,
         ICommandProviderContext commandProviderContext,
         ProviderSettings providerSettings,
-        IServiceProvider serviceProvider,
+        ISettingsService settingsService,
+        HotkeyManager hotkeyManager,
+        AliasManager aliasManager,
         ICommandItem? commandItem,
         IContextMenuFactory? contextMenuFactory)
     {
-        _serviceProvider = serviceProvider;
-        _settingsService = serviceProvider.GetRequiredService<ISettingsService>();
+        _settingsService = settingsService;
+        _hotkeyManager = hotkeyManager;
+        _aliasManager = aliasManager;
         _providerSettings = providerSettings;
         ProviderContext = commandProviderContext;
         _commandItemViewModel = item;
@@ -327,21 +330,17 @@ public sealed partial class TopLevelViewModel : ObservableObject, IListItem, IEx
                 ? null
                 : new CommandAlias(Alias.Alias, Alias.CommandId, Alias.IsDirect);
 
-        _serviceProvider.GetService<AliasManager>()!.UpdateAlias(Id, commandAlias);
+        _aliasManager.UpdateAlias(Id, commandAlias);
         UpdateTags();
     }
 
     private void FetchAliasFromAliasManager()
     {
-        var am = _serviceProvider.GetService<AliasManager>();
-        if (am is not null)
+        var commandAlias = _aliasManager.AliasFromId(Id);
+        if (commandAlias is not null)
         {
-            var commandAlias = am.AliasFromId(Id);
-            if (commandAlias is not null)
-            {
-                // Decouple from the alias manager alias object
-                Alias = new CommandAlias(commandAlias.Alias, commandAlias.CommandId, commandAlias.IsDirect);
-            }
+            // Decouple from the alias manager alias object
+            Alias = new CommandAlias(commandAlias.Alias, commandAlias.CommandId, commandAlias.IsDirect);
         }
     }
 

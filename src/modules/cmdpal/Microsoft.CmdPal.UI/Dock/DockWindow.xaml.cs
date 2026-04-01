@@ -6,12 +6,12 @@ using System.Runtime.InteropServices;
 using CommunityToolkit.Mvvm.Messaging;
 using ManagedCommon;
 using Microsoft.CmdPal.UI.Helpers;
+using Microsoft.CmdPal.Common.Text;
 using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Dock;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
 using Microsoft.CmdPal.UI.ViewModels.Services;
 using Microsoft.CmdPal.UI.ViewModels.Settings;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Dispatching;
@@ -46,6 +46,7 @@ public sealed partial class DockWindow : WindowEx,
 
     private readonly IThemeService _themeService;
     private readonly ISettingsService _settingsService;
+    private readonly IFuzzyMatcherProvider _fuzzyMatcherProvider;
     private readonly DockWindowViewModel _windowViewModel;
     private readonly HiddenOwnerWindowBehavior _hiddenOwnerWindowBehavior = new();
 
@@ -70,21 +71,21 @@ public sealed partial class DockWindow : WindowEx,
     private WNDPROC? _customWndProc;
 
     // internal Settings CurrentSettings => _settings;
-    public DockWindow()
+    public DockWindow(ISettingsService settingsService, DockViewModel dockViewModel, IThemeService themeService, IFuzzyMatcherProvider fuzzyMatcherProvider)
     {
-        var serviceProvider = App.Current.Services;
-        var mainSettings = serviceProvider.GetRequiredService<ISettingsService>().Settings;
-        _settingsService = serviceProvider.GetRequiredService<ISettingsService>();
+        _settingsService = settingsService;
+        _fuzzyMatcherProvider = fuzzyMatcherProvider;
         _settingsService.SettingsChanged += SettingsChangedHandler;
+        var mainSettings = _settingsService.Settings;
         _settings = mainSettings.DockSettings;
         _lastSize = _settings.DockSize;
 
-        viewModel = serviceProvider.GetService<DockViewModel>()!;
-        _themeService = serviceProvider.GetRequiredService<IThemeService>();
+        viewModel = dockViewModel;
+        _themeService = themeService;
         _themeService.ThemeChanged += ThemeService_ThemeChanged;
         InitializeBackdropSupport();
         _windowViewModel = new DockWindowViewModel(_themeService);
-        _dock = new DockControl(viewModel);
+        _dock = new DockControl(viewModel, _fuzzyMatcherProvider);
 
         InitializeComponent();
         Root.Children.Add(_dock);

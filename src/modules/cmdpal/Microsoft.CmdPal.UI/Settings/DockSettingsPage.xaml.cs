@@ -8,10 +8,10 @@ using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Dock;
 using Microsoft.CmdPal.UI.ViewModels.Services;
 using Microsoft.CmdPal.UI.ViewModels.Settings;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
+using Microsoft.UI.Xaml.Navigation;
 using Microsoft.Windows.Storage.Pickers;
 
 namespace Microsoft.CmdPal.UI.Settings;
@@ -20,22 +20,31 @@ public sealed partial class DockSettingsPage : Page
 {
     private readonly TaskScheduler _mainTaskScheduler = TaskScheduler.FromCurrentSynchronizationContext();
 
-    internal SettingsViewModel ViewModel { get; }
+    private TopLevelCommandManager? _topLevelCommandManager;
+    private ISettingsService? _settingsService;
+    private DockViewModel? _dockViewModel;
+
+    internal SettingsViewModel? ViewModel { get; private set; }
 
     public List<DockBandSettingsViewModel> AllDockBandItems => GetAllBandSettings();
 
     public DockSettingsPage()
     {
         this.InitializeComponent();
+    }
 
-        var themeService = App.Current.Services.GetService<IThemeService>()!;
-        var topLevelCommandManager = App.Current.Services.GetService<TopLevelCommandManager>()!;
-        var settingsService = App.Current.Services.GetRequiredService<ISettingsService>();
-
-        ViewModel = new SettingsViewModel(topLevelCommandManager, _mainTaskScheduler, themeService, settingsService);
-
-        // Initialize UI state
-        InitializeSettings();
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+        if (e.Parameter is SettingsPageContext ctx)
+        {
+            _topLevelCommandManager = ctx.TopLevelCommandManager;
+            _settingsService = ctx.SettingsService;
+            _dockViewModel = ctx.DockViewModel;
+            ViewModel = new SettingsViewModel(ctx.TopLevelCommandManager, _mainTaskScheduler, ctx.ThemeService, ctx.SettingsService);
+            Bindings.Update();
+            InitializeSettings();
+        }
     }
 
     private void InitializeSettings()
@@ -72,7 +81,7 @@ public sealed partial class DockSettingsPage : Page
             var file = await picker.PickSingleFileAsync()!;
             if (file != null)
             {
-                ViewModel.DockAppearance.BackgroundImagePath = file.Path ?? string.Empty;
+                ViewModel!.DockAppearance.BackgroundImagePath = file.Path ?? string.Empty;
             }
         }
         catch (Exception ex)
@@ -101,26 +110,54 @@ public sealed partial class DockSettingsPage : Page
     // Property bindings for ComboBoxes
     public int SelectedDockSizeIndex
     {
-        get => DockSizeToSelectedIndex(ViewModel.Dock_DockSize);
-        set => ViewModel.Dock_DockSize = SelectedIndexToDockSize(value);
+        get => ViewModel is not null ? DockSizeToSelectedIndex(ViewModel.Dock_DockSize) : 0;
+
+        set
+        {
+            if (ViewModel is not null)
+            {
+                ViewModel.Dock_DockSize = SelectedIndexToDockSize(value);
+            }
+        }
     }
 
     public int SelectedSideIndex
     {
-        get => SideToSelectedIndex(ViewModel.Dock_Side);
-        set => ViewModel.Dock_Side = SelectedIndexToSide(value);
+        get => ViewModel is not null ? SideToSelectedIndex(ViewModel.Dock_Side) : 1;
+
+        set
+        {
+            if (ViewModel is not null)
+            {
+                ViewModel.Dock_Side = SelectedIndexToSide(value);
+            }
+        }
     }
 
     public int SelectedBackdropIndex
     {
-        get => BackdropToSelectedIndex(ViewModel.Dock_Backdrop);
-        set => ViewModel.Dock_Backdrop = SelectedIndexToBackdrop(value);
+        get => ViewModel is not null ? BackdropToSelectedIndex(ViewModel.Dock_Backdrop) : 1;
+
+        set
+        {
+            if (ViewModel is not null)
+            {
+                ViewModel.Dock_Backdrop = SelectedIndexToBackdrop(value);
+            }
+        }
     }
 
     public bool ShowLabels
     {
-        get => ViewModel.Dock_ShowLabels;
-        set => ViewModel.Dock_ShowLabels = value;
+        get => ViewModel?.Dock_ShowLabels ?? false;
+
+        set
+        {
+            if (ViewModel is not null)
+            {
+                ViewModel.Dock_ShowLabels = value;
+            }
+        }
     }
 
     // Conversion methods for ComboBox bindings
@@ -174,11 +211,14 @@ public sealed partial class DockSettingsPage : Page
 
     private List<TopLevelViewModel> GetAllBands()
     {
+        if (_topLevelCommandManager is null)
+        {
+            return [];
+        }
+
         var allBands = new List<TopLevelViewModel>();
 
-        var tlcManager = App.Current.Services.GetService<TopLevelCommandManager>()!;
-
-        foreach (var item in tlcManager.GetDockBandsSnapshot())
+        foreach (var item in _topLevelCommandManager.GetDockBandsSnapshot())
         {
             if (item.IsDockBand)
             {
@@ -191,25 +231,25 @@ public sealed partial class DockSettingsPage : Page
 
     private List<DockBandSettingsViewModel> GetAllBandSettings()
     {
+        if (_topLevelCommandManager is null || _dockViewModel is null || _settingsService is null)
+        {
+            return [];
+        }
+
         var allSettings = new List<DockBandSettingsViewModel>();
 
-        // var allBands = GetAllBands();
-        var tlcManager = App.Current.Services.GetService<TopLevelCommandManager>()!;
-        var settingsModel = App.Current.Services.GetRequiredService<ISettingsService>().Settings;
-        var settingsService = App.Current.Services.GetRequiredService<ISettingsService>();
-        var dockViewModel = App.Current.Services.GetService<DockViewModel>()!;
-        var allBands = tlcManager.GetDockBandsSnapshot();
+        var allBands = _topLevelCommandManager.GetDockBandsSnapshot();
         foreach (var band in allBands)
         {
             var setting = band.DockBandSettings;
             if (setting is not null)
             {
-                var bandVm = dockViewModel.FindBandByTopLevel(band);
+                var bandVm = _dockViewModel.FindBandByTopLevel(band);
                 allSettings.Add(new(
                     dockSettingsModel: setting,
                     topLevelAdapter: band,
                     bandViewModel: bandVm,
-                    settingsService: settingsService
+                    settingsService: _settingsService
                 ));
             }
         }

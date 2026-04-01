@@ -262,7 +262,7 @@
                 </StackPanel>
             </Grid>
         </ScrollViewer>
-        <cpcontrols:FallbackRankerDialog x:Name="FallbackRankerDialog" />
+        <ContentControl x:Name="FallbackRankerDialogHost" />
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="LayoutVisualStates">
                 <VisualState x:Name="WideLayout">

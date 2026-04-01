@@ -8,9 +8,9 @@ using Microsoft.CmdPal.Common.Services;
 using Microsoft.CmdPal.UI.Helpers;
 using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Navigation;
 using Windows.Win32.UI.Shell;
 
 namespace Microsoft.CmdPal.UI.Settings;
@@ -18,11 +18,11 @@ namespace Microsoft.CmdPal.UI.Settings;
 public sealed partial class GeneralPage : Page, INotifyPropertyChanged
 {
     private readonly TaskScheduler _mainTaskScheduler = TaskScheduler.FromCurrentSynchronizationContext();
-
-    private readonly SettingsViewModel? viewModel;
-    private readonly IApplicationInfoService _appInfoService;
-    private readonly ISettingsService _settingsService;
     private readonly DispatcherTimer _notificationStateTimer;
+
+    private SettingsViewModel? viewModel;
+    private IApplicationInfoService? _appInfoService;
+    private ISettingsService? _settingsService;
 
     private bool _isNotificationStateSuppressing;
     private string _notificationStateMessage = string.Empty;
@@ -33,17 +33,23 @@ public sealed partial class GeneralPage : Page, INotifyPropertyChanged
     {
         this.InitializeComponent();
 
-        var topLevelCommandManager = App.Current.Services.GetService<TopLevelCommandManager>()!;
-        var themeService = App.Current.Services.GetService<IThemeService>()!;
-        _settingsService = App.Current.Services.GetRequiredService<ISettingsService>();
-        _appInfoService = App.Current.Services.GetRequiredService<IApplicationInfoService>();
-        viewModel = new SettingsViewModel(topLevelCommandManager, _mainTaskScheduler, themeService, _settingsService);
-
         _notificationStateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _notificationStateTimer.Tick += NotificationStateTimer_Tick;
 
         Loaded += GeneralPage_Loaded;
         Unloaded += GeneralPage_Unloaded;
+    }
+
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+        if (e.Parameter is SettingsPageContext ctx)
+        {
+            _settingsService = ctx.SettingsService;
+            _appInfoService = ctx.ApplicationInfoService;
+            viewModel = new SettingsViewModel(ctx.TopLevelCommandManager, _mainTaskScheduler, ctx.ThemeService, _settingsService);
+            Bindings.Update();
+        }
     }
 
     public bool IsNotificationStateSuppressing
@@ -77,14 +83,18 @@ public sealed partial class GeneralPage : Page, INotifyPropertyChanged
         get
         {
             var versionNo = ResourceLoaderInstance.GetString("Settings_GeneralPage_VersionNo");
-            var version = _appInfoService.AppVersion;
+            var version = _appInfoService?.AppVersion ?? string.Empty;
             return string.Format(CultureInfo.CurrentCulture, versionNo, version);
         }
     }
 
     private void GeneralPage_Loaded(object sender, RoutedEventArgs e)
     {
-        _settingsService.SettingsChanged += SettingsService_SettingsChanged;
+        if (_settingsService is not null)
+        {
+            _settingsService.SettingsChanged += SettingsService_SettingsChanged;
+        }
+
         UpdateNotificationState();
         _notificationStateTimer.Start();
     }
@@ -92,7 +102,10 @@ public sealed partial class GeneralPage : Page, INotifyPropertyChanged
     private void GeneralPage_Unloaded(object sender, RoutedEventArgs e)
     {
         _notificationStateTimer.Stop();
-        _settingsService.SettingsChanged -= SettingsService_SettingsChanged;
+        if (_settingsService is not null)
+        {
+            _settingsService.SettingsChanged -= SettingsService_SettingsChanged;
+        }
     }
 
     private void NotificationStateTimer_Tick(object? sender, object e)

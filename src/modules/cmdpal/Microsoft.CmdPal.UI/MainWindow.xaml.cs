@@ -20,7 +20,7 @@ using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
 using Microsoft.CmdPal.UI.ViewModels.Services;
 using Microsoft.CmdPal.ViewModels.Messages;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.CmdPal.UI.Pages;
 using Microsoft.PowerToys.Telemetry;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Composition.SystemBackdrops;
@@ -72,7 +72,12 @@ public sealed partial class MainWindow : WindowEx,
     private readonly LocalKeyboardListener _localKeyboardListener;
     private readonly HiddenOwnerWindowBehavior _hiddenOwnerBehavior = new();
     private readonly IThemeService _themeService;
+    private readonly ISettingsService _settingsService;
+    private readonly TrayIconService _trayIconService;
+    private readonly IExtensionService _extensionService;
+    private readonly Func<ShellPage> _shellPageFactory;
     private readonly WindowThemeSynchronizer _windowThemeSynchronizer;
+    private ShellPage? _shellPage;
     private readonly List<long> _breakthroughTimestamps = [];
 
     private bool _ignoreHotKeyWhenFullScreen = true;
@@ -106,16 +111,30 @@ public sealed partial class MainWindow : WindowEx,
 
     public bool IsVisibleToUser { get; private set; } = true;
 
-    public MainWindow()
+    public MainWindow(
+        MainWindowViewModel mainWindowViewModel,
+        IThemeService themeService,
+        ISettingsService settingsService,
+        TrayIconService trayIconService,
+        IExtensionService extensionService,
+        Func<ShellPage> shellPageFactory)
     {
+        ViewModel = mainWindowViewModel;
+        _themeService = themeService;
+        _settingsService = settingsService;
+        _trayIconService = trayIconService;
+        _extensionService = extensionService;
+        _shellPageFactory = shellPageFactory;
+
         InitializeComponent();
 
-        ViewModel = App.Current.Services.GetService<MainWindowViewModel>()!;
+        _shellPage = _shellPageFactory();
+        _shellPage.HostWindow = this;
+        ShellPageHost.Content = _shellPage;
 
         _autoGoHomeTimer = new DispatcherTimer();
         _autoGoHomeTimer.Tick += OnAutoGoHomeTimerOnTick;
 
-        _themeService = App.Current.Services.GetRequiredService<IThemeService>();
         _themeService.ThemeChanged += ThemeServiceOnThemeChanged;
         _windowThemeSynchronizer = new WindowThemeSynchronizer(_themeService, this);
 
@@ -174,7 +193,7 @@ public sealed partial class MainWindow : WindowEx,
 
         // Load our settings, and then also wire up a settings changed handler
         HotReloadSettings();
-        App.Current.Services.GetRequiredService<ISettingsService>().SettingsChanged += SettingsChangedHandler;
+        _settingsService.SettingsChanged += SettingsChangedHandler;
 
         // Make sure that we update the acrylic theme when the OS theme changes
         RootElement.ActualThemeChanged += (s, e) => DispatcherQueue.TryEnqueue(UpdateBackdrop);
@@ -296,7 +315,7 @@ public sealed partial class MainWindow : WindowEx,
 
     private void RestoreWindowPositionFromSavedSettings()
     {
-        var settings = App.Current.Services.GetRequiredService<ISettingsService>().Settings;
+        var settings = _settingsService.Settings;
         RestoreWindowPosition(settings?.LastWindowPosition);
     }
 
@@ -367,10 +386,10 @@ public sealed partial class MainWindow : WindowEx,
 
     private void HotReloadSettings()
     {
-        var settings = App.Current.Services.GetRequiredService<ISettingsService>().Settings;
+        var settings = _settingsService.Settings;
 
         SetupHotkey(settings);
-        App.Current.Services.GetService<TrayIconService>()!.SetupTrayIcon(settings.ShowSystemTrayIcon);
+        _trayIconService.SetupTrayIcon(settings.ShowSystemTrayIcon);
 
         _ignoreHotKeyWhenFullScreen = settings.IgnoreShortcutWhenFullscreen;
         _ignoreHotKeyWhenBusy = settings.IgnoreShortcutWhenBusy;
@@ -713,7 +732,7 @@ public sealed partial class MainWindow : WindowEx,
     {
         _isLoadedFromDock = false;
 
-        var settings = App.Current.Services.GetRequiredService<ISettingsService>().Settings;
+        var settings = _settingsService.Settings;
 
         // Start session tracking
         _sessionStopwatch = Stopwatch.StartNew();
@@ -901,29 +920,25 @@ public sealed partial class MainWindow : WindowEx,
 
     internal void MainWindow_Closed(object sender, WindowEventArgs args)
     {
-        var serviceProvider = App.Current.Services;
-
         if (!_isLoadedFromDock)
         {
             UpdateWindowPositionInMemory();
         }
 
-        var settingsService = serviceProvider.GetRequiredService<ISettingsService>();
-        var settings = settingsService.Settings;
+        var settings = _settingsService.Settings;
         if (settings is not null)
         {
             // If we were last shown from the dock, _currentWindowPosition still holds
             // the last non-dock placement because dock sessions intentionally skip updates.
             if (_currentWindowPosition.IsSizeValid)
             {
-                settingsService.UpdateSettings(s => s with { LastWindowPosition = _currentWindowPosition });
+                _settingsService.UpdateSettings(s => s with { LastWindowPosition = _currentWindowPosition });
             }
         }
 
-        var extensionService = serviceProvider.GetService<IExtensionService>()!;
-        extensionService.SignalStopExtensionsAsync();
+        _extensionService.SignalStopExtensionsAsync();
 
-        App.Current.Services.GetService<TrayIconService>()!.Destroy();
+        _trayIconService.Destroy();
 
         // WinUI bug is causing a crash on shutdown when FailFastOnErrors is set to true (#51773592).
         // Workaround by turning it off before shutdown.
@@ -1086,7 +1101,7 @@ public sealed partial class MainWindow : WindowEx,
                         }
                         else if (uri.StartsWith("x-cmdpal://reload", StringComparison.OrdinalIgnoreCase))
                         {
-                            var settings = App.Current.Services.GetRequiredService<ISettingsService>().Settings;
+                            var settings = _settingsService.Settings;
                             if (settings?.AllowExternalReload == true)
                             {
                                 Logger.LogInfo("External Reload triggered");
