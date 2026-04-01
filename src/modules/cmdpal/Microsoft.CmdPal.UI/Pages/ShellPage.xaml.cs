@@ -8,13 +8,13 @@ using System.Text;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI;
 using ManagedCommon;
+using Microsoft.CmdPal.Common.Text;
 using Microsoft.CmdPal.UI.Controls;
 using Microsoft.CmdPal.UI.Dock;
 using Microsoft.CmdPal.UI.Events;
 using Microsoft.CmdPal.UI.Helpers;
 using Microsoft.CmdPal.UI.Messages;
 using Microsoft.CmdPal.UI.Services;
-using Microsoft.CmdPal.Common.Text;
 using Microsoft.CmdPal.UI.Settings;
 using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
@@ -28,6 +28,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
 using WinUIEx;
+using CommandBar = Microsoft.CmdPal.UI.Controls.CommandBar;
 using DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
 using VirtualKey = Windows.System.VirtualKey;
 
@@ -68,18 +69,19 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
 
     private readonly CompositeFormat _pageNavigatedAnnouncement;
 
-    private SettingsWindow? _settingsWindow;
-    private DockWindow? _dockWindow;
-
-    private CancellationTokenSource? _focusAfterLoadedCts;
-    private WeakReference<Page>? _lastNavigatedPageRef;
-    private bool _isDisposed;
     private readonly SearchBar _searchBar;
     private readonly ISettingsService _settingsService;
     private readonly TopLevelCommandManager _topLevelCommandManager;
     private readonly IFuzzyMatcherProvider _fuzzyMatcherProvider;
     private readonly Func<DockWindow> _dockWindowFactory;
     private readonly Func<SettingsWindow> _settingsWindowFactory;
+
+    private SettingsWindow? _settingsWindow;
+    private DockWindow? _dockWindow;
+
+    private CancellationTokenSource? _focusAfterLoadedCts;
+    private WeakReference<Page>? _lastNavigatedPageRef;
+    private bool _isDisposed;
 
     public ShellViewModel ViewModel { get; private set; }
 
@@ -106,12 +108,14 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
 
         _searchBar = new SearchBar(_settingsService);
         _searchBar.HorizontalAlignment = HorizontalAlignment.Stretch;
-        _searchBar.SetBinding(SearchBar.CurrentPageViewModelProperty,
+        _searchBar.SetBinding(
+            SearchBar.CurrentPageViewModelProperty,
             new Microsoft.UI.Xaml.Data.Binding { Source = ViewModel, Path = new PropertyPath(nameof(ViewModel.CurrentPage)), Mode = Microsoft.UI.Xaml.Data.BindingMode.OneWay });
         SearchBarHost.Content = _searchBar;
 
         var commandBar = new CommandBar(_fuzzyMatcherProvider);
-        commandBar.SetBinding(CommandBar.CurrentPageViewModelProperty,
+        commandBar.SetBinding(
+            CommandBar.CurrentPageViewModelProperty,
             new Microsoft.UI.Xaml.Data.Binding { Source = ViewModel, Path = new PropertyPath(nameof(ViewModel.CurrentPage)), Mode = Microsoft.UI.Xaml.Data.BindingMode.OneWay });
         CommandBarHost.Content = commandBar;
 
@@ -565,7 +569,7 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
 
     public void Receive(ShowHideDockMessage message)
     {
-        _ = DispatcherQueue.TryEnqueue(() =>
+        _ = DispatcherQueue.TryEnqueue((DispatcherQueueHandler)(() =>
         {
             if (_isDisposed)
             {
@@ -574,19 +578,19 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
 
             if (message.ShowDock)
             {
-                if (_dockWindow is null)
+                if (this._dockWindow is null)
                 {
-                    _dockWindow = _dockWindowFactory();
+                    this._dockWindow = _dockWindowFactory();
                 }
 
-                _dockWindow.Show();
+                WinUIEx.WindowExtensions.Show(this._dockWindow);
             }
-            else if (_dockWindow is not null)
+            else if (this._dockWindow is not null)
             {
-                _dockWindow.Close();
-                _dockWindow = null;
+                this._dockWindow.Close();
+                this._dockWindow = null;
             }
-        });
+        }));
     }
 
     private void ToggleFilterFocus()
@@ -643,6 +647,11 @@ public sealed partial class ShellPage : Microsoft.UI.Xaml.Controls.Page,
 
         if (e.Content is Page element)
         {
+            if (element is ListPage listPage)
+            {
+                listPage.Initialize(_settingsService);
+            }
+
             _lastNavigatedPageRef = new WeakReference<Page>(element);
             element.Loaded += FocusAfterLoaded;
         }

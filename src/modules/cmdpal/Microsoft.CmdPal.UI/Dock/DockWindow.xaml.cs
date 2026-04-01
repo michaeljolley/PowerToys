@@ -5,8 +5,8 @@
 using System.Runtime.InteropServices;
 using CommunityToolkit.Mvvm.Messaging;
 using ManagedCommon;
-using Microsoft.CmdPal.UI.Helpers;
 using Microsoft.CmdPal.Common.Text;
+using Microsoft.CmdPal.UI.Helpers;
 using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Dock;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
@@ -33,8 +33,8 @@ namespace Microsoft.CmdPal.UI.Dock;
 #pragma warning disable SA1402 // File may only contain a single type
 
 public sealed partial class DockWindow : WindowEx,
-                                                 IRecipient<BringToTopMessage>,
-                                                 IRecipient<RequestShowPaletteAtMessage>,
+    IRecipient<BringToTopMessage>,
+    IRecipient<RequestShowPaletteAtMessage>,
     IRecipient<QuitMessage>,
     IDisposable
 {
@@ -71,7 +71,11 @@ public sealed partial class DockWindow : WindowEx,
     private WNDPROC? _customWndProc;
 
     // internal Settings CurrentSettings => _settings;
-    public DockWindow(ISettingsService settingsService, DockViewModel dockViewModel, IThemeService themeService, IFuzzyMatcherProvider fuzzyMatcherProvider)
+    public DockWindow(
+        ISettingsService settingsService,
+        DockViewModel dockViewModel,
+        IThemeService themeService,
+        IFuzzyMatcherProvider fuzzyMatcherProvider)
     {
         _settingsService = settingsService;
         _fuzzyMatcherProvider = fuzzyMatcherProvider;
@@ -133,7 +137,8 @@ public sealed partial class DockWindow : WindowEx,
         _ = PInvoke.SetWindowLong(_hwnd, WINDOW_LONG_PTR_INDEX.GWL_STYLE, (int)style);
 
         ShowDesktop.AddHook(this);
-        _isFullScreenAppOpen = WindowHelper.IsWindowFullscreen();
+        var userNotificationFlags = WindowHelper.GetUserNotificationFlags();
+        _isFullScreenAppOpen = userNotificationFlags.IsFullscreenState || userNotificationFlags.IsBusy;
         UpdateSettingsOnUiThread();
     }
 

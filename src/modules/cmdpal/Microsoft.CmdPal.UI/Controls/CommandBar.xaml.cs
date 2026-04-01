@@ -21,7 +21,7 @@ public sealed partial class CommandBar : UserControl,
     IRecipient<TryCommandKeybindingMessage>,
     ICurrentPageAware
 {
-    private ContextMenu ContextControl;
+    private ContextMenu _contextControl;
 
     public CommandBarViewModel ViewModel { get; } = new();
 
@@ -39,8 +39,8 @@ public sealed partial class CommandBar : UserControl,
     {
         this.InitializeComponent();
 
-        ContextControl = new ContextMenu(fuzzyMatcherProvider);
-        ContextControlHost.Content = ContextControl;
+        _contextControl = new ContextMenu(fuzzyMatcherProvider);
+        ContextControlHost.Content = _contextControl;
 
         // RegisterAll isn't AOT compatible
         WeakReferenceMessenger.Default.Register<OpenContextMenuMessage>(this);
@@ -58,7 +58,7 @@ public sealed partial class CommandBar : UserControl,
                 return;
             }
 
-            ContextControl.PrepareForOpen(message.ContextMenuFilterLocation);
+            _contextControl.PrepareForOpen(message.ContextMenuFilterLocation);
 
             _ = DispatcherQueue.TryEnqueue(
                 () =>
@@ -75,12 +75,12 @@ public sealed partial class CommandBar : UserControl,
         else
         {
             // This is invoked from a specific element
-            if (!(ContextControl.ViewModel.SelectedItem?.CanOpenContextMenu ?? false))
+            if (!(_contextControl.ViewModel.SelectedItem?.CanOpenContextMenu ?? false))
             {
                 return;
             }
 
-            ContextControl.PrepareForOpen(message.ContextMenuFilterLocation);
+            _contextControl.PrepareForOpen(message.ContextMenuFilterLocation);
 
             _ = DispatcherQueue.TryEnqueue(
             () =>
@@ -164,6 +164,6 @@ public sealed partial class CommandBar : UserControl,
     {
         // We need to wait until our flyout is opened to try and toss focus
         // at its search box. The control isn't in the UI tree before that
-        ContextControl.FocusSearchBox();
+        _contextControl.FocusSearchBox();
     }
 }

@@ -63,16 +63,20 @@ public sealed partial class ListPage : Page,
 
     private ListViewBase ItemView => ViewModel?.IsGridView == true ? ItemsGrid : ItemsList;
 
-    private readonly ISettingsService _settingsService;
+    private ISettingsService? _settingsService;
 
-    public ListPage(ISettingsService settingsService)
+    public ListPage()
     {
-        _settingsService = settingsService;
         this.InitializeComponent();
         this.NavigationCacheMode = NavigationCacheMode.Disabled;
         this.ItemView.Loaded += Items_Loaded;
         this.ItemView.PreviewKeyDown += Items_PreviewKeyDown;
         this.ItemView.PointerPressed += Items_PointerPressed;
+    }
+
+    internal void Initialize(ISettingsService settingsService)
+    {
+        _settingsService = settingsService;
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -173,7 +177,7 @@ public sealed partial class ListPage : Page,
                 return;
             }
 
-            if (_settingsService.Settings.SingleClickActivates)
+            if (_settingsService!.Settings.SingleClickActivates)
             {
                 ViewModel?.InvokeItemCommand.Execute(item);
             }
@@ -192,7 +196,7 @@ public sealed partial class ListPage : Page,
     {
         if (ItemView.SelectedItem is ListItemViewModel vm)
         {
-            if (!_settingsService.Settings.SingleClickActivates)
+            if (!_settingsService!.Settings.SingleClickActivates)
             {
                 ViewModel?.InvokeItemCommand.Execute(vm);
             }

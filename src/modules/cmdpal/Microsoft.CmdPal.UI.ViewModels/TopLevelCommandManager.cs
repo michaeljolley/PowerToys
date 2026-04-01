@@ -34,11 +34,11 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
     private readonly ICommandProviderCache _commandProviderCache;
     private readonly TaskScheduler _taskScheduler;
     private readonly IExtensionService _extensionService;
-    private readonly IEnumerable<ICommandProvider> _builtInCommandProviders;
+    private readonly Lazy<IEnumerable<ICommandProvider>> _builtInCommandProviders;
     private readonly ISettingsService _settingsService;
-    private readonly IContextMenuFactory _contextMenuFactory;
-    private readonly HotkeyManager _hotkeyManager;
-    private readonly AliasManager _aliasManager;
+    private readonly Lazy<IContextMenuFactory> _contextMenuFactory;
+    private readonly Lazy<HotkeyManager> _hotkeyManager;
+    private readonly Lazy<AliasManager> _aliasManager;
 
     private readonly List<CommandProviderWrapper> _builtInCommands = [];
     private readonly List<CommandProviderWrapper> _extensionCommandProviders = [];
@@ -56,11 +56,11 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
         ICommandProviderCache commandProviderCache,
         TaskScheduler taskScheduler,
         IExtensionService extensionService,
-        IEnumerable<ICommandProvider> builtInCommandProviders,
+        Lazy<IEnumerable<ICommandProvider>> builtInCommandProviders,
         ISettingsService settingsService,
-        IContextMenuFactory contextMenuFactory,
-        HotkeyManager hotkeyManager,
-        AliasManager aliasManager)
+        Lazy<IContextMenuFactory> contextMenuFactory,
+        Lazy<HotkeyManager> hotkeyManager,
+        Lazy<AliasManager> aliasManager)
     {
         _commandProviderCache = commandProviderCache;
         _taskScheduler = taskScheduler;
@@ -108,10 +108,10 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
 
         // Load built-In commands first. These are all in-proc, and
         // owned by our ServiceProvider.
-        var builtInCommands = _builtInCommandProviders;
+        var builtInCommands = _builtInCommandProviders.Value;
         foreach (var provider in builtInCommands)
         {
-            CommandProviderWrapper wrapper = new(provider, _taskScheduler, _settingsService, _contextMenuFactory, _hotkeyManager, _aliasManager);
+            CommandProviderWrapper wrapper = new(provider, _taskScheduler, _settingsService, _contextMenuFactory.Value, _hotkeyManager.Value, _aliasManager.Value);
             lock (_commandProvidersLock)
             {
                 _builtInCommands.Add(wrapper);
@@ -474,7 +474,7 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
         {
             await startTask.WaitAsync(ExtensionStartTimeout, ct).ConfigureAwait(false);
             Logger.LogInfo($"Started extension {extension.PackageFullName} in {sw.ElapsedMilliseconds} ms");
-            return ExtensionStartResult.Started(extension, new CommandProviderWrapper(extension, _taskScheduler, _commandProviderCache, _settingsService, _contextMenuFactory, _hotkeyManager, _aliasManager));
+            return ExtensionStartResult.Started(extension, new CommandProviderWrapper(extension, _taskScheduler, _commandProviderCache, _settingsService, _contextMenuFactory.Value, _hotkeyManager.Value, _aliasManager.Value));
         }
         catch (TimeoutException)
         {
@@ -503,7 +503,7 @@ public sealed partial class TopLevelCommandManager : ObservableObject,
         {
             await startTask.WaitAsync(BackgroundStartTimeout, ct).ConfigureAwait(false);
 
-            var wrapper = new CommandProviderWrapper(extension, _taskScheduler, _commandProviderCache, _settingsService, _contextMenuFactory, _hotkeyManager, _aliasManager);
+            var wrapper = new CommandProviderWrapper(extension, _taskScheduler, _commandProviderCache, _settingsService, _contextMenuFactory.Value, _hotkeyManager.Value, _aliasManager.Value);
             Logger.LogInfo($"Late-started extension {extension.PackageFullName} in {sw.ElapsedMilliseconds} ms, loading commands and bands");
 
             await RegisterAndLoadCommandsAsync([wrapper], ct).ConfigureAwait(false);

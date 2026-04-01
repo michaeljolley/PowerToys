@@ -15,12 +15,12 @@ using Microsoft.CmdPal.UI.Dock;
 using Microsoft.CmdPal.UI.Events;
 using Microsoft.CmdPal.UI.Helpers;
 using Microsoft.CmdPal.UI.Messages;
+using Microsoft.CmdPal.UI.Pages;
 using Microsoft.CmdPal.UI.Services;
 using Microsoft.CmdPal.UI.ViewModels;
 using Microsoft.CmdPal.UI.ViewModels.Messages;
 using Microsoft.CmdPal.UI.ViewModels.Services;
 using Microsoft.CmdPal.ViewModels.Messages;
-using Microsoft.CmdPal.UI.Pages;
 using Microsoft.PowerToys.Telemetry;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Composition.SystemBackdrops;
@@ -77,8 +77,8 @@ public sealed partial class MainWindow : WindowEx,
     private readonly IExtensionService _extensionService;
     private readonly Func<ShellPage> _shellPageFactory;
     private readonly WindowThemeSynchronizer _windowThemeSynchronizer;
-    private ShellPage? _shellPage;
     private readonly List<long> _breakthroughTimestamps = [];
+    private ShellPage? _shellPage;
 
     private bool _ignoreHotKeyWhenFullScreen = true;
     private bool _ignoreHotKeyWhenBusy;

@@ -23,14 +23,14 @@ namespace Microsoft.CmdPal.UI.Controls;
 
 public sealed partial class FallbackRankerDialog : UserControl
 {
-    private FallbackRanker FallbackRanker;
+    private FallbackRanker _fallbackRanker;
 
     public FallbackRankerDialog(TopLevelCommandManager topLevelCommandManager, IThemeService themeService, ISettingsService settingsService)
     {
         InitializeComponent();
 
-        FallbackRanker = new FallbackRanker(topLevelCommandManager, themeService, settingsService);
-        FallbackRankerHost.Content = FallbackRanker;
+        _fallbackRanker = new FallbackRanker(topLevelCommandManager, themeService, settingsService);
+        FallbackRankerHost.Content = _fallbackRanker;
     }
 
     public IAsyncOperation<ContentDialogResult> ShowAsync()
